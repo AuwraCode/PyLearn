@@ -12,7 +12,18 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from tutor_sidecar import __version__
-from tutor_sidecar.api import ask, concepts, exercises, graph, health, review, stats
+from tutor_sidecar.api import (
+    ask,
+    concepts,
+    exercises,
+    graph,
+    health,
+    review,
+    stats,
+)
+from tutor_sidecar.api import (
+    settings as settings_api,
+)
 from tutor_sidecar.api.deps import verify_token
 from tutor_sidecar.config import (
     ALLOWED_ORIGINS,
@@ -21,7 +32,8 @@ from tutor_sidecar.config import (
     Settings,
 )
 from tutor_sidecar.db.migrations import migrate
-from tutor_sidecar.services.llm import CliProvider, FakeProvider, LlmProvider, find_claude
+from tutor_sidecar.services.llm import LlmProvider
+from tutor_sidecar.services.providers import resolve_provider
 
 
 async def _watchdog(app: FastAPI) -> None:
@@ -47,15 +59,6 @@ async def _watchdog(app: FastAPI) -> None:
             os._exit(0)
 
 
-def _detect_provider(settings: Settings) -> LlmProvider | None:
-    if settings.fake_llm_path is not None:
-        return FakeProvider.from_file(settings.fake_llm_path)
-    claude_path = find_claude()
-    if claude_path is not None:
-        return CliProvider(claude_path)
-    return None
-
-
 def create_app(settings: Settings, provider: LlmProvider | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -75,6 +78,14 @@ def create_app(settings: Settings, provider: LlmProvider | None = None) -> FastA
                 app.state.db_status = "error"
                 print(f"BŁĄD migracji bazy: {exc}", file=sys.stderr, flush=True)
 
+        # Provider wybierany PO migracji — tryb (auto/cli/sdk) siedzi w bazie.
+        if not app.state.provider_locked:
+            resolved, meta = await asyncio.to_thread(
+                resolve_provider, settings, settings.db_path
+            )
+            app.state.provider = resolved
+            app.state.provider_meta = meta
+
         watchdog = None if settings.dev else asyncio.create_task(_watchdog(app))
         try:
             yield
@@ -92,7 +103,9 @@ def create_app(settings: Settings, provider: LlmProvider | None = None) -> FastA
     )
     app.state.settings = settings
     app.state.db_status = "absent"
-    app.state.provider = provider if provider is not None else _detect_provider(settings)
+    app.state.provider = provider
+    app.state.provider_locked = provider is not None
+    app.state.provider_meta = {}
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ALLOWED_ORIGINS,
@@ -106,4 +119,5 @@ def create_app(settings: Settings, provider: LlmProvider | None = None) -> FastA
     app.include_router(review.router)
     app.include_router(stats.router)
     app.include_router(graph.router)
+    app.include_router(settings_api.router)
     return app

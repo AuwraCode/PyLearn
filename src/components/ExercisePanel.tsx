@@ -11,9 +11,11 @@ const SOLUTION_UNLOCK_FAILS = 2;
 interface ExercisePanelProps {
   exercise: ExerciseOut;
   api: ApiClient;
+  language: string;
 }
 
-export function ExercisePanel({ exercise, api }: ExercisePanelProps) {
+export function ExercisePanel({ exercise, api, language }: ExercisePanelProps) {
+  const runnable = language === "python";
   const codeRef = useRef(exercise.starter_code);
   const [running, setRunning] = useState(false);
   const [run, setRun] = useState<RunResponse | null>(null);
@@ -115,8 +117,21 @@ export function ExercisePanel({ exercise, api }: ExercisePanelProps) {
         </div>
       )}
 
+      {!runnable && (
+        <p className="mt-3 text-xs text-muted">
+          Uruchamianie testów jest na razie dostępne tylko dla Pythona — dla języka „
+          {language}" rozwiąż zadanie i porównaj z rozwiązaniem albo poproś AI o
+          podpowiedź.
+        </p>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={requestRun} disabled={running} className="btn-primary disabled:opacity-50">
+        <button
+          type="button"
+          onClick={requestRun}
+          disabled={running || !runnable}
+          className="btn-primary disabled:opacity-50"
+        >
           {running ? "Uruchamiam…" : "Uruchom testy"}
         </button>
         {exercise.hint && (

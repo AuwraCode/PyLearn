@@ -259,6 +259,39 @@ class StatsResponse(BaseModel):
     weak_spots: list[WeakSpot]
 
 
+class SettingsResponse(BaseModel):
+    llm_mode: Literal["auto", "cli", "sdk"]
+    sdk_model: str
+    default_language: str
+    default_level: str
+    export_dir: str
+    claude_cli_found: bool
+    api_key_configured: bool
+    active_provider: Literal["cli", "sdk", "fake", "none"]
+    sdk_models: list[str]
+
+
+class PatchSettingsRequest(BaseModel):
+    llm_mode: Literal["auto", "cli", "sdk"] | None = None
+    sdk_model: str | None = Field(default=None, max_length=60)
+    default_language: str | None = Field(default=None, min_length=1, max_length=40)
+    default_level: str | None = Field(default=None, min_length=1, max_length=60)
+    export_dir: str | None = Field(default=None, max_length=500)
+
+
+class ApiKeyRequest(BaseModel):
+    key: str = Field(min_length=10, max_length=300)
+
+
+class UsageResponse(BaseModel):
+    month_cost_usd: float
+    month_calls: int
+    month_tokens_in: int
+    month_tokens_out: int
+    total_cost_usd: float
+    total_calls: int
+
+
 class GraphNode(BaseModel):
     id: int
     name: str

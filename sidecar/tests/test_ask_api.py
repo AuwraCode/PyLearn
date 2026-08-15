@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import tutor_sidecar.app as app_module
 from tutor_sidecar.app import create_app
 from tutor_sidecar.config import Settings
+from tutor_sidecar.services import providers
 from tutor_sidecar.services.llm import FakeProvider, LlmProvider
 
 HEADERS = {"X-Session-Token": "test-token"}
@@ -94,7 +94,8 @@ def test_raw_note_lands_in_listing(client: TestClient) -> None:
 def test_no_provider_gives_onboarding_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(app_module, "find_claude", lambda: None)
+    monkeypatch.setattr(providers, "find_claude", lambda: None)
+    monkeypatch.setattr(providers.keychain, "get_api_key", lambda: None)
     with make_client(tmp_path, provider=None) as client:
         response = client.post(
             "/ask", json={"question": "co robi strip()?"}, headers=HEADERS

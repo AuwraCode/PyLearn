@@ -530,7 +530,9 @@ def get_concept_detail(conn: sqlite3.Connection, concept_id: int) -> dict[str, A
 
 def get_exercise(conn: sqlite3.Connection, exercise_id: int) -> sqlite3.Row | None:
     row: sqlite3.Row | None = conn.execute(
-        "SELECT * FROM exercises WHERE id = ?", (exercise_id,)
+        "SELECT e.*, c.language AS concept_language FROM exercises e "
+        "JOIN concepts c ON c.id = e.concept_id WHERE e.id = ?",
+        (exercise_id,),
     ).fetchone()
     return row
 
@@ -583,6 +585,44 @@ def insert_raw_note(
         except sqlite3.IntegrityError:
             name = f"{base_name} ({suffix})"
     raise sqlite3.IntegrityError(f"nie udało się nadać unikalnej nazwy dla: {base_name}")
+
+
+def get_settings(conn: sqlite3.Connection) -> dict[str, str]:
+    rows = conn.execute("SELECT key, value FROM settings").fetchall()
+    return {str(row["key"]): str(row["value"]) for row in rows}
+
+
+def set_settings(conn: sqlite3.Connection, values: dict[str, str]) -> None:
+    for key, value in values.items():
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+
+
+def usage_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+    row = conn.execute(
+        "SELECT "
+        "COALESCE(SUM(cost_usd), 0) AS total_cost, COUNT(*) AS total_calls, "
+        "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
+        "  THEN cost_usd END), 0) AS month_cost, "
+        "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
+        "  THEN 1 END), 0) AS month_calls, "
+        "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
+        "  THEN tokens_in END), 0) AS month_tokens_in, "
+        "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
+        "  THEN tokens_out END), 0) AS month_tokens_out "
+        "FROM usage_log"
+    ).fetchone()
+    return {
+        "total_cost_usd": round(float(row["total_cost"]), 4),
+        "total_calls": int(row["total_calls"]),
+        "month_cost_usd": round(float(row["month_cost"]), 4),
+        "month_calls": int(row["month_calls"]),
+        "month_tokens_in": int(row["month_tokens_in"]),
+        "month_tokens_out": int(row["month_tokens_out"]),
+    }
 
 
 def log_usage(

@@ -113,6 +113,32 @@ def test_hint_returns_provider_text_and_logs_usage(
     assert usage_rows == 2  # raz lekcja + raz podpowiedź
 
 
+def test_run_rejects_non_python_language(
+    tmp_path: Path, lesson_strip_json: str
+) -> None:
+    settings = Settings(
+        token="test-token", dev=True, db_path=tmp_path / "js.db", fake_llm_path=None
+    )
+    with TestClient(
+        create_app(settings, provider=FakeProvider([lesson_strip_json]))
+    ) as client:
+        ask = client.post(
+            "/ask",
+            json={"question": "co robi strip()?", "language": "javascript"},
+            headers=HEADERS,
+        )
+        detail = client.get(
+            f"/concepts/{ask.json()['concept_id']}", headers=HEADERS
+        ).json()
+        response = client.post(
+            f"/exercises/{detail['exercise']['id']}/run",
+            json={"code": "cokolwiek"},
+            headers=HEADERS,
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"]["kind"] == "runner"
+
+
 def test_run_on_missing_exercise_is_404(setup: tuple[TestClient, int, Path]) -> None:
     client, _, _ = setup
     response = client.post(

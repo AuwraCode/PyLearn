@@ -134,7 +134,7 @@ export function LessonView({
 
       {detail.exercise && (
         <section {...reveal()} className="reveal mt-10">
-          <ExercisePanel exercise={detail.exercise} api={api} />
+          <ExercisePanel exercise={detail.exercise} api={api} language={detail.language} />
         </section>
       )}
 

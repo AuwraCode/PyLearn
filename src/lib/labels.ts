@@ -11,3 +11,7 @@ export const STATUS_DOT_CLASS: Record<ConceptStatus, string> = {
   learning: "bg-amber",
   known: "bg-ok",
 };
+
+export const LANGUAGES = ["python", "javascript", "typescript", "rust", "sql"] as const;
+
+export const LEVELS = ["początkujący", "średniozaawansowany", "zaawansowany"] as const;

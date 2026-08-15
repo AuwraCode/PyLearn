@@ -9,13 +9,16 @@ import type {
   HealthResponse,
   HintResponse,
   PatchConceptBody,
+  PatchSettingsBody,
   RawNoteResponse,
   ReviewQueue,
   ReviewResponse,
   RunResponse,
+  SettingsResponse,
   SolutionResponse,
   StatsResponse,
   TagList,
+  UsageResponse,
 } from "../types/api";
 import type { BackendInfo } from "./backend";
 
@@ -180,5 +183,35 @@ export class ApiClient {
       method: "POST",
       body: JSON.stringify({ format, path }),
     });
+  }
+
+  getSettings(): Promise<SettingsResponse> {
+    return this.request<SettingsResponse>("/settings");
+  }
+
+  putSettings(patch: PatchSettingsBody): Promise<SettingsResponse> {
+    return this.request<SettingsResponse>("/settings", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    });
+  }
+
+  putApiKey(key: string): Promise<SettingsResponse> {
+    return this.request<SettingsResponse>("/settings/api-key", {
+      method: "PUT",
+      body: JSON.stringify({ key }),
+    });
+  }
+
+  deleteApiKey(): Promise<SettingsResponse> {
+    return this.request<SettingsResponse>("/settings/api-key", { method: "DELETE" });
+  }
+
+  getUsage(): Promise<UsageResponse> {
+    return this.request<UsageResponse>("/usage");
+  }
+
+  openDataDir(): Promise<void> {
+    return this.request<void>("/system/open-data-dir", { method: "POST" });
   }
 }

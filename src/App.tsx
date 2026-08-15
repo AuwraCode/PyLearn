@@ -64,6 +64,7 @@ export default function App() {
             api={phase.api}
             askTarget={askTarget}
             onAskTargetConsumed={() => setAskTarget(null)}
+            onGoSettings={() => setView("settings")}
           />
         </div>
         <div className="h-full" hidden={view !== "library"}>

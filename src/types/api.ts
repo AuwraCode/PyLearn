@@ -204,6 +204,37 @@ export interface StatsResponse {
   weak_spots: WeakSpot[];
 }
 
+export type LlmMode = "auto" | "cli" | "sdk";
+
+export interface SettingsResponse {
+  llm_mode: LlmMode;
+  sdk_model: string;
+  default_language: string;
+  default_level: string;
+  export_dir: string;
+  claude_cli_found: boolean;
+  api_key_configured: boolean;
+  active_provider: "cli" | "sdk" | "fake" | "none";
+  sdk_models: string[];
+}
+
+export interface PatchSettingsBody {
+  llm_mode?: LlmMode;
+  sdk_model?: string;
+  default_language?: string;
+  default_level?: string;
+  export_dir?: string;
+}
+
+export interface UsageResponse {
+  month_cost_usd: number;
+  month_calls: number;
+  month_tokens_in: number;
+  month_tokens_out: number;
+  total_cost_usd: number;
+  total_calls: number;
+}
+
 export interface GraphNode {
   id: number;
   name: string;

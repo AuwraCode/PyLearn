@@ -3,8 +3,7 @@ import type { ApiClient } from "../lib/api";
 import { ApiError } from "../lib/api";
 import type { AskStatus, ConceptDetail, ConceptSummary } from "../types/api";
 import { LessonView } from "../components/LessonView";
-
-const LEVELS = ["początkujący", "średniozaawansowany", "zaawansowany"] as const;
+import { LANGUAGES, LEVELS } from "../lib/labels";
 
 const BANNERS: Partial<Record<AskStatus, string>> = {
   filled: "Wypełniona biała plama z grafu — to pojęcie czekało na naukę.",
@@ -23,13 +22,26 @@ interface AskViewProps {
   /** Pytanie do natychmiastowego wysłania (z palety / chipów w Bibliotece). */
   askTarget: string | null;
   onAskTargetConsumed: () => void;
+  onGoSettings: () => void;
 }
 
-export function AskView({ api, askTarget, onAskTargetConsumed }: AskViewProps) {
+export function AskView({ api, askTarget, onAskTargetConsumed, onGoSettings }: AskViewProps) {
   const [state, setState] = useState<AskState>({ t: "idle" });
   const [question, setQuestion] = useState("");
   const [level, setLevel] = useState<string>(LEVELS[0]);
+  const [language, setLanguage] = useState<string>(LANGUAGES[0]);
   const [recent, setRecent] = useState<ConceptSummary[]>([]);
+
+  useEffect(() => {
+    // Domyślny język i poziom z Ustawień — raz, przy starcie widoku.
+    api
+      .getSettings()
+      .then((settings) => {
+        setLevel(settings.default_level);
+        setLanguage(settings.default_language);
+      })
+      .catch(() => {});
+  }, [api]);
 
   useEffect(() => {
     if (state.t !== "idle") return;
@@ -61,7 +73,7 @@ export function AskView({ api, askTarget, onAskTargetConsumed }: AskViewProps) {
       if (!trimmed) return;
       setState({ t: "asking", question: trimmed });
       api
-        .ask({ question: trimmed, level, force })
+        .ask({ question: trimmed, level, language, force })
         .then((result) => {
           if (result.status === "duplicate") {
             setState({ t: "duplicate", question: trimmed, conceptId: result.concept_id });
@@ -80,7 +92,7 @@ export function AskView({ api, askTarget, onAskTargetConsumed }: AskViewProps) {
           });
         });
     },
-    [api, level, openConcept],
+    [api, level, language, openConcept],
   );
 
   const askRelated = useCallback(
@@ -188,8 +200,17 @@ export function AskView({ api, askTarget, onAskTargetConsumed }: AskViewProps) {
           </pre>
         )}
         <div className="mt-5 flex flex-wrap gap-3">
+          {state.kind === "no_provider" && (
+            <button type="button" onClick={onGoSettings} className="btn-primary">
+              Przejdź do Ustawień
+            </button>
+          )}
           {state.question && (
-            <button type="button" onClick={() => submit(state.question)} className="btn-primary">
+            <button
+              type="button"
+              onClick={() => submit(state.question)}
+              className={state.kind === "no_provider" ? "btn-secondary" : "btn-primary"}
+            >
               Spróbuj ponownie
             </button>
           )}
@@ -230,22 +251,38 @@ export function AskView({ api, askTarget, onAskTargetConsumed }: AskViewProps) {
             placeholder="np. co robi strip()?"
             className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-lg outline-none transition-colors placeholder:text-muted/60 focus:border-amber"
           />
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 text-muted">
-              poziom
-              <select
-                value={level}
-                onChange={(event) => setLevel(event.target.value)}
-                className="rounded-md border border-line bg-surface px-2 py-1 text-fg outline-none focus:border-amber"
-              >
-                {LEVELS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span className="text-xs text-muted">Enter — wyślij</span>
+          <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-muted">
+                język
+                <select
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value)}
+                  className="rounded-md border border-line bg-surface px-2 py-1 font-mono text-fg outline-none focus:border-amber"
+                >
+                  {LANGUAGES.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-muted">
+                poziom
+                <select
+                  value={level}
+                  onChange={(event) => setLevel(event.target.value)}
+                  className="rounded-md border border-line bg-surface px-2 py-1 text-fg outline-none focus:border-amber"
+                >
+                  {LEVELS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <span className="shrink-0 text-xs text-muted">Enter — wyślij</span>
           </div>
         </form>
 

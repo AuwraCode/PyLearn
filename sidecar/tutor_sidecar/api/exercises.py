@@ -43,6 +43,18 @@ def run_exercise(exercise_id: int, payload: RunRequest, request: Request) -> Run
     db_path = require_db(request)
     exercise = _load_exercise(db_path, exercise_id)
 
+    if exercise["concept_language"] != "python":
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "kind": "runner",
+                "message": (
+                    "Uruchamianie testów jest na razie dostępne tylko dla Pythona. "
+                    "Podpowiedzi od korepetytora działają dla każdego języka."
+                ),
+            },
+        )
+
     python = runner.find_python()
     if python is None:
         raise HTTPException(

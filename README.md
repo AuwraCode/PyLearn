@@ -64,11 +64,19 @@ Frontend: `pnpm typecheck`. Rust: `cargo check` i `cargo clippy` w `src-tauri/`.
 
 ## Model i koszty
 
-Tryb domyślny to Claude Code CLI (`claude -p --output-format json`, prompt przez
-stdin, `--allowedTools ""`). Używany jest model ustawiony jako domyślny w Twoim
-Claude Code — jedna lekcja to zwykle kilkadziesiąt centów (np. ~0,42 USD na
-`claude-fable-5`). Każde wywołanie (także nieudane) ląduje w tabeli `usage_log`
-z tokenami i kosztem; podsumowanie pokaże widok Ustawienia (etap 7).
+Dwa tryby, przełączane w Ustawieniach (domyślnie „auto": CLI ma pierwszeństwo,
+potem klucz API):
+
+- **Claude Code CLI** — `claude -p --output-format json`, prompt przez stdin,
+  `--allowedTools ""`. Używa modelu ustawionego jako domyślny w Twoim Claude
+  Code; jedna lekcja to zwykle kilkadziesiąt centów.
+- **Anthropic SDK** — klucz API trzymany w keychainie systemowym (`keyring`),
+  nigdy w bazie ani plikach. Domyślny model `claude-opus-5` ($5/$25 za mln
+  tokenów), do wyboru też fable-5 / opus-4-8 / sonnet-5 / haiku-4-5. Na
+  opus-5/fable-5 włączony serwerowy fallback odmów (`fallbacks: "default"`).
+
+Każde wywołanie (także nieudane) ląduje w `usage_log` z tokenami i kosztem;
+podsumowanie miesiąca i całości pokazuje widok Ustawienia (`GET /usage`).
 
 ## Dane
 
@@ -110,4 +118,9 @@ automatyzuje Findera i przy pierwszym uruchomieniu macOS pyta o zgodę.
       „białe plamy" jako puste okręgi — klik zadaje pytanie), eksport Markdown
       pod Obsidiana (frontmatter YAML z aliasami, linki [[wiki]], index.md)
       i pełny backup JSON; sekcja Eksport w Ustawieniach.
-- [ ] Etap 7 — fallback SDK, streaming, motywy, kolejne języki
+- [x] Etap 7 — fallback Anthropic SDK (klucz w keychainie, wybór modelu,
+      obsługa odmów), tryb modelu i domyślny język/poziom w Ustawieniach,
+      koszty miesiąca, „Otwórz folder z danymi", logi rotowane (5 MB) do
+      `app_data_dir/logs/`, pytania w kolejnych językach (runner testów na
+      razie tylko dla Pythona). Świadomie poza zakresem: streaming SSE
+      (zostaje spinner z etapami) i motywy (zostaje ciemny).
