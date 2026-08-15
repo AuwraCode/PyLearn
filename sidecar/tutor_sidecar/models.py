@@ -284,12 +284,20 @@ class ApiKeyRequest(BaseModel):
 
 
 class UsageResponse(BaseModel):
+    # *_cost_usd to równowartość katalogowa; realnym wydatkiem jest tylko pula
+    # sdk (klucz API) — CLI przy subskrypcji Claude Code nie kosztuje dodatkowo.
     month_cost_usd: float
     month_calls: int
+    month_sdk_cost_usd: float
+    month_sdk_calls: int
+    month_cli_cost_usd: float
+    month_cli_calls: int
     month_tokens_in: int
     month_tokens_out: int
     total_cost_usd: float
     total_calls: int
+    total_sdk_cost_usd: float
+    total_cli_cost_usd: float
 
 
 class GraphNode(BaseModel):

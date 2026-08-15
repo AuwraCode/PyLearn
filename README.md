@@ -75,8 +75,10 @@ potem klucz API):
   tokenów), do wyboru też fable-5 / opus-4-8 / sonnet-5 / haiku-4-5. Na
   opus-5/fable-5 włączony serwerowy fallback odmów (`fallbacks: "default"`).
 
-Każde wywołanie (także nieudane) ląduje w `usage_log` z tokenami i kosztem;
-podsumowanie miesiąca i całości pokazuje widok Ustawienia (`GET /usage`).
+Każde wywołanie (także nieudane) ląduje w `usage_log` z tokenami i kosztem.
+Ustawienia (`GET /usage`) rozdzielają dwie pule: **realny koszt API** (tryb
+z kluczem) i **równowartość katalogową** wywołań przez Claude Code — przy
+subskrypcji te drugie nie kosztują dodatkowo, kwota jest tylko informacyjna.
 
 ## Dane
 

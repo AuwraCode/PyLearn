@@ -222,32 +222,41 @@ export function SettingsView({ api }: { api: ApiClient }) {
 
         <section className="mt-5 rounded-lg border border-line bg-surface p-5">
           <h2 className="text-xs font-medium uppercase tracking-widest text-amber">
-            Koszty modelu
+            Zużycie modelu (bieżący miesiąc)
           </h2>
           {usage ? (
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-2xl font-semibold tabular-nums">
-                  ${usage.month_cost_usd.toFixed(2)}
-                </p>
-                <p className="text-xs text-muted">
-                  bieżący miesiąc · {usage.month_calls}{" "}
-                  {usage.month_calls === 1 ? "wywołanie" : "wywołań"}
-                </p>
+            <div className="mt-3 space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-2xl font-semibold tabular-nums">
+                    ${usage.month_sdk_cost_usd.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted">
+                    realny koszt API (klucz) · {usage.month_sdk_calls}{" "}
+                    {usage.month_sdk_calls === 1 ? "wywołanie" : "wywołań"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-2xl font-semibold tabular-nums text-muted">
+                    ${usage.month_cli_cost_usd.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted">
+                    równowartość zużycia przez Claude Code · {usage.month_cli_calls}{" "}
+                    {usage.month_cli_calls === 1 ? "wywołanie" : "wywołań"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-semibold tabular-nums">
-                  ${usage.total_cost_usd.toFixed(2)}
-                </p>
-                <p className="text-xs text-muted">łącznie · {usage.total_calls} wywołań</p>
-              </div>
-              <p className="col-span-2 text-xs text-muted">
-                W tym miesiącu: {usage.month_tokens_in.toLocaleString("pl-PL")} tokenów
-                wejścia, {usage.month_tokens_out.toLocaleString("pl-PL")} wyjścia.
+              <p className="text-xs text-muted">
+                Wywołania przez Claude Code przy subskrypcji nie kosztują dodatkowo —
+                kwota obok to ich wartość katalogowa API. Tokeny w tym miesiącu:{" "}
+                {usage.month_tokens_in.toLocaleString("pl-PL")} wejścia,{" "}
+                {usage.month_tokens_out.toLocaleString("pl-PL")} wyjścia. Od początku:{" "}
+                {usage.total_calls} wywołań, realny koszt API $
+                {usage.total_sdk_cost_usd.toFixed(2)}.
               </p>
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted">Brak danych o kosztach.</p>
+            <p className="mt-2 text-sm text-muted">Brak danych o zużyciu.</p>
           )}
         </section>
 

@@ -602,13 +602,25 @@ def set_settings(conn: sqlite3.Connection, values: dict[str, str]) -> None:
 
 
 def usage_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+    # Rozdzielamy pule: tryb SDK (klucz API) to realne pieniądze; tryb CLI to
+    # równowartość katalogowa — przy subskrypcji Claude Code realny koszt = 0.
     row = conn.execute(
         "SELECT "
         "COALESCE(SUM(cost_usd), 0) AS total_cost, COUNT(*) AS total_calls, "
+        "COALESCE(SUM(CASE WHEN mode = 'sdk' THEN cost_usd END), 0) AS total_sdk_cost, "
+        "COALESCE(SUM(CASE WHEN mode = 'cli' THEN cost_usd END), 0) AS total_cli_cost, "
         "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
         "  THEN cost_usd END), 0) AS month_cost, "
         "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
         "  THEN 1 END), 0) AS month_calls, "
+        "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
+        "  AND mode = 'sdk' THEN cost_usd END), 0) AS month_sdk_cost, "
+        "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
+        "  AND mode = 'sdk' THEN 1 END), 0) AS month_sdk_calls, "
+        "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
+        "  AND mode = 'cli' THEN cost_usd END), 0) AS month_cli_cost, "
+        "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
+        "  AND mode = 'cli' THEN 1 END), 0) AS month_cli_calls, "
         "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
         "  THEN tokens_in END), 0) AS month_tokens_in, "
         "COALESCE(SUM(CASE WHEN strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') "
@@ -618,8 +630,14 @@ def usage_summary(conn: sqlite3.Connection) -> dict[str, Any]:
     return {
         "total_cost_usd": round(float(row["total_cost"]), 4),
         "total_calls": int(row["total_calls"]),
+        "total_sdk_cost_usd": round(float(row["total_sdk_cost"]), 4),
+        "total_cli_cost_usd": round(float(row["total_cli_cost"]), 4),
         "month_cost_usd": round(float(row["month_cost"]), 4),
         "month_calls": int(row["month_calls"]),
+        "month_sdk_cost_usd": round(float(row["month_sdk_cost"]), 4),
+        "month_sdk_calls": int(row["month_sdk_calls"]),
+        "month_cli_cost_usd": round(float(row["month_cli_cost"]), 4),
+        "month_cli_calls": int(row["month_cli_calls"]),
         "month_tokens_in": int(row["month_tokens_in"]),
         "month_tokens_out": int(row["month_tokens_out"]),
     }

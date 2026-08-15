@@ -227,12 +227,19 @@ export interface PatchSettingsBody {
 }
 
 export interface UsageResponse {
+  /** Równowartość katalogowa; realny wydatek to tylko pula sdk (klucz API). */
   month_cost_usd: number;
   month_calls: number;
+  month_sdk_cost_usd: number;
+  month_sdk_calls: number;
+  month_cli_cost_usd: number;
+  month_cli_calls: number;
   month_tokens_in: number;
   month_tokens_out: number;
   total_cost_usd: number;
   total_calls: number;
+  total_sdk_cost_usd: number;
+  total_cli_cost_usd: number;
 }
 
 export interface GraphNode {

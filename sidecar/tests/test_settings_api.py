@@ -111,12 +111,36 @@ def test_provider_resolution_modes(
         assert settings["active_provider"] == "cli"
 
 
-def test_usage_endpoint_counts_calls(client: TestClient) -> None:
-    client.post("/ask", json={"question": "co robi strip()?"}, headers=HEADERS)
-    usage = client.get("/usage", headers=HEADERS).json()
-    assert usage["month_calls"] == 1
-    assert usage["total_calls"] == 1
-    assert usage["month_cost_usd"] == 0.0  # FakeProvider
+def test_usage_endpoint_splits_cli_and_sdk(
+    tmp_path: Path, lesson_strip_json: str
+) -> None:
+    from tutor_sidecar.db import repo
+    from tutor_sidecar.db.connection import connect
+
+    settings = _settings(tmp_path)
+    with TestClient(
+        create_app(settings, provider=FakeProvider([lesson_strip_json]))
+    ) as client:
+        client.post("/ask", json={"question": "co robi strip()?"}, headers=HEADERS)
+
+        assert settings.db_path is not None
+        conn = connect(settings.db_path)
+        try:
+            with conn:
+                repo.log_usage(conn, 1000, 500, 0.5, "cli")
+                repo.log_usage(conn, 2000, 800, 0.2, "sdk")
+        finally:
+            conn.close()
+
+        usage = client.get("/usage", headers=HEADERS).json()
+        assert usage["month_calls"] == 3  # fake + cli + sdk
+        assert usage["month_cli_calls"] == 1
+        assert usage["month_sdk_calls"] == 1
+        # realny wydatek = tylko pula SDK; CLI to równowartość katalogowa
+        assert usage["month_sdk_cost_usd"] == pytest.approx(0.2)
+        assert usage["month_cli_cost_usd"] == pytest.approx(0.5)
+        assert usage["month_cost_usd"] == pytest.approx(0.7)
+        assert usage["total_sdk_cost_usd"] == pytest.approx(0.2)
 
 
 def test_sdk_provider_parses_response_and_computes_cost() -> None:
