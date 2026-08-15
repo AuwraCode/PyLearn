@@ -1,0 +1,432 @@
+from __future__ import annotations
+
+import json
+import re
+import sqlite3
+from typing import Any
+
+from tutor_sidecar.models import Lesson
+
+# Jedyne miejsce w projekcie, w którym wolno pisać SQL do danych domenowych.
+
+# Znaczniki podświetleń w snippetach FTS — znaki kontrolne, które nie mają prawa
+# wystąpić w treści; frontend zamienia je na <mark> po swojej stronie.
+MARK_OPEN = "\x02"
+MARK_CLOSE = "\x03"
+
+# Placeholdery z grafu (ani tldr, ani treści) nie są jeszcze notatkami.
+_HAS_CONTENT = "(c.tldr IS NOT NULL OR c.explanation IS NOT NULL)"
+
+
+def build_match_query(user_query: str) -> str | None:
+    """Bezpieczne zapytanie FTS5: każdy term w cudzysłowach (operatorów i nawiasów
+    użytkownika nie interpretujemy), ostatni term z '*' — szukanie w trakcie pisania."""
+    terms = [t for t in re.split(r"\s+", user_query.strip()) if t]
+    if not terms:
+        return None
+    parts = []
+    for index, term in enumerate(terms):
+        escaped = term.replace('"', '""')
+        suffix = "*" if index == len(terms) - 1 and re.search(r"\w$", term) else ""
+        parts.append(f'"{escaped}"{suffix}')
+    return " ".join(parts)
+
+
+def upsert_placeholder(conn: sqlite3.Connection, name: str, language: str) -> int:
+    conn.execute(
+        "INSERT INTO concepts (name, language, status) VALUES (?, ?, 'new') "
+        "ON CONFLICT(name, language) DO NOTHING",
+        (name, language),
+    )
+    row = conn.execute(
+        "SELECT id FROM concepts WHERE name = ? AND language = ?", (name, language)
+    ).fetchone()
+    return int(row["id"])
+
+
+def find_existing(conn: sqlite3.Connection, name: str, language: str) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM concepts WHERE name = ? AND language = ?", (name, language)
+    ).fetchone()
+    return row
+
+
+def find_dedup_candidate(
+    conn: sqlite3.Connection, question: str, language: str
+) -> sqlite3.Row | None:
+    """Tania deduplikacja przed wywołaniem modelu: dokładne trafienie pytania
+    w nazwę istniejącego pojęcia albo w identyczne wcześniejsze pytanie.
+    Placeholdery (bez tldr) nie liczą się jako duplikat — te chcemy wypełnić."""
+    q = question.strip()
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM concepts WHERE language = ? AND tldr IS NOT NULL "
+        "AND (LOWER(name) = LOWER(?) OR LOWER(COALESCE(source_question, '')) = LOWER(?)) "
+        "LIMIT 1",
+        (language, q, q),
+    ).fetchone()
+    return row
+
+
+def _write_lesson_content(conn: sqlite3.Connection, concept_id: int, lesson: Lesson) -> None:
+    conn.execute("DELETE FROM examples WHERE concept_id = ?", (concept_id,))
+    for ord_, example in enumerate(lesson.examples):
+        conn.execute(
+            "INSERT INTO examples (concept_id, ord, title, code, output, comment) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (concept_id, ord_, example.title, example.code, example.output, example.comment),
+        )
+
+    if lesson.exercise is not None:
+        tests_json = json.dumps(
+            [test.model_dump() for test in lesson.exercise.tests], ensure_ascii=False
+        )
+        existing = conn.execute(
+            "SELECT id FROM exercises WHERE concept_id = ?", (concept_id,)
+        ).fetchone()
+        if existing:
+            # UPDATE zamiast DELETE+INSERT: attempts wskazują exercise_id kaskadą —
+            # wymiana wiersza skasowałaby historię prób.
+            conn.execute(
+                "UPDATE exercises SET prompt = ?, starter_code = ?, tests_json = ?, "
+                "hint = ?, solution = ? WHERE id = ?",
+                (
+                    lesson.exercise.prompt,
+                    lesson.exercise.starter_code,
+                    tests_json,
+                    lesson.exercise.hint,
+                    lesson.exercise.solution,
+                    existing["id"],
+                ),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO exercises (concept_id, prompt, starter_code, tests_json, "
+                "hint, solution) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    concept_id,
+                    lesson.exercise.prompt,
+                    lesson.exercise.starter_code,
+                    tests_json,
+                    lesson.exercise.hint,
+                    lesson.exercise.solution,
+                ),
+            )
+
+    conn.execute("DELETE FROM cards WHERE concept_id = ?", (concept_id,))
+    for card in lesson.flashcards:
+        conn.execute(
+            "INSERT INTO cards (concept_id, q, a) VALUES (?, ?, ?)",
+            (concept_id, card.q, card.a),
+        )
+
+    conn.execute(
+        "DELETE FROM links WHERE from_concept_id = ? AND kind = 'related'", (concept_id,)
+    )
+    for related_name in dict.fromkeys(n.strip() for n in lesson.related if n.strip()):
+        target_id = upsert_placeholder(conn, related_name, lesson.language)
+        if target_id != concept_id:
+            conn.execute(
+                "INSERT OR IGNORE INTO links (from_concept_id, to_concept_id, kind) "
+                "VALUES (?, ?, 'related')",
+                (concept_id, target_id),
+            )
+
+
+def insert_lesson(
+    conn: sqlite3.Connection, lesson: Lesson, question: str, model: str | None
+) -> int:
+    cursor = conn.execute(
+        "INSERT INTO concepts (name, language, category, signature, tldr, explanation, "
+        "gotchas_json, source_question, model_used, status) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'learning')",
+        (
+            lesson.concept,
+            lesson.language,
+            lesson.category,
+            lesson.signature,
+            lesson.tldr,
+            lesson.explanation,
+            json.dumps(lesson.gotchas, ensure_ascii=False),
+            question,
+            model,
+        ),
+    )
+    concept_id = int(cursor.lastrowid or 0)
+    _write_lesson_content(conn, concept_id, lesson)
+    return concept_id
+
+
+def apply_lesson_to_existing(
+    conn: sqlite3.Connection,
+    concept_id: int,
+    lesson: Lesson,
+    question: str,
+    model: str | None,
+) -> None:
+    # Nazwa i język zostają — to tożsamość rekordu (tagi, notatki, linki po id).
+    conn.execute(
+        "UPDATE concepts SET category = ?, signature = ?, tldr = ?, explanation = ?, "
+        "gotchas_json = ?, source_question = ?, model_used = ?, status = 'learning', "
+        "updated_at = datetime('now') WHERE id = ?",
+        (
+            lesson.category,
+            lesson.signature,
+            lesson.tldr,
+            lesson.explanation,
+            json.dumps(lesson.gotchas, ensure_ascii=False),
+            question,
+            model,
+            concept_id,
+        ),
+    )
+    _write_lesson_content(conn, concept_id, lesson)
+
+
+def search_concepts(
+    conn: sqlite3.Connection,
+    *,
+    q: str | None,
+    tag: str | None,
+    language: str | None,
+    status: str | None,
+    limit: int,
+    offset: int,
+) -> tuple[list[sqlite3.Row], int]:
+    """Lista/wyszukiwarka biblioteki. Zwraca (wiersze, total). Z `q` idzie przez
+    FTS5 (ranking bm25, snippet z podświetleniami), bez — świeżość malejąco."""
+    filters = [_HAS_CONTENT]
+    params: list[Any] = []
+    if language:
+        filters.append("c.language = ?")
+        params.append(language)
+    if status:
+        filters.append("c.status = ?")
+        params.append(status)
+    if tag:
+        filters.append(
+            "EXISTS (SELECT 1 FROM concept_tags ct JOIN tags t ON t.id = ct.tag_id "
+            "WHERE ct.concept_id = c.id AND t.name = ? COLLATE NOCASE)"
+        )
+        params.append(tag)
+
+    match = build_match_query(q) if q else None
+    if match is not None:
+        source = "concepts_fts f JOIN concepts c ON c.id = f.rowid"
+        filters.append("concepts_fts MATCH ?")
+        select_extra = f"snippet(concepts_fts, -1, '{MARK_OPEN}', '{MARK_CLOSE}', ' … ', 14)"
+        order = "f.rank"
+        params.append(match)
+    else:
+        source = "concepts c"
+        select_extra = "NULL"
+        order = "c.updated_at DESC"
+
+    where = " AND ".join(filters)
+    total_row = conn.execute(
+        f"SELECT COUNT(*) AS c FROM {source} WHERE {where}", params
+    ).fetchone()
+    rows = conn.execute(
+        f"SELECT c.id, c.name, c.language, c.tldr, c.status, c.created_at, "
+        f"c.updated_at, {select_extra} AS snippet "
+        f"FROM {source} WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?",
+        [*params, limit, offset],
+    ).fetchall()
+    return rows, int(total_row["c"])
+
+
+def tags_for_concepts(
+    conn: sqlite3.Connection, concept_ids: list[int]
+) -> dict[int, list[str]]:
+    if not concept_ids:
+        return {}
+    placeholders = ",".join("?" * len(concept_ids))
+    rows = conn.execute(
+        f"SELECT ct.concept_id, t.name FROM concept_tags ct "
+        f"JOIN tags t ON t.id = ct.tag_id "
+        f"WHERE ct.concept_id IN ({placeholders}) ORDER BY ct.rowid",
+        concept_ids,
+    ).fetchall()
+    result: dict[int, list[str]] = {}
+    for row in rows:
+        result.setdefault(int(row["concept_id"]), []).append(str(row["name"]))
+    return result
+
+
+def patch_concept(
+    conn: sqlite3.Connection,
+    concept_id: int,
+    *,
+    status: str | None = None,
+    tldr: str | None = None,
+    explanation: str | None = None,
+) -> None:
+    sets = ["updated_at = datetime('now')"]
+    params: list[Any] = []
+    for column, value in (("status", status), ("tldr", tldr), ("explanation", explanation)):
+        if value is not None:
+            sets.append(f"{column} = ?")
+            params.append(value)
+    conn.execute(
+        f"UPDATE concepts SET {', '.join(sets)} WHERE id = ?",
+        [*params, concept_id],
+    )
+
+
+def replace_tags(conn: sqlite3.Connection, concept_id: int, tags: list[str]) -> None:
+    conn.execute("DELETE FROM concept_tags WHERE concept_id = ?", (concept_id,))
+    for name in tags:
+        conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
+        conn.execute(
+            "INSERT OR IGNORE INTO concept_tags (concept_id, tag_id) "
+            "SELECT ?, id FROM tags WHERE name = ? COLLATE NOCASE",
+            (concept_id, name),
+        )
+    _prune_orphan_tags(conn)
+
+
+def _prune_orphan_tags(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM concept_tags)"
+    )
+
+
+def delete_concept(conn: sqlite3.Connection, concept_id: int) -> bool:
+    cursor = conn.execute("DELETE FROM concepts WHERE id = ?", (concept_id,))
+    if cursor.rowcount == 0:
+        return False
+    # Sprzątanie po kaskadach: tagi bez pojęć i placeholdery, do których nic już
+    # nie linkuje (martwe „białe plamy" zaśmiecałyby graf).
+    _prune_orphan_tags(conn)
+    conn.execute(
+        "DELETE FROM concepts WHERE tldr IS NULL AND explanation IS NULL "
+        "AND id NOT IN (SELECT from_concept_id FROM links) "
+        "AND id NOT IN (SELECT to_concept_id FROM links)"
+    )
+    return True
+
+
+def add_note(conn: sqlite3.Connection, concept_id: int, body_md: str) -> int:
+    cursor = conn.execute(
+        "INSERT INTO notes (concept_id, body_md) VALUES (?, ?)", (concept_id, body_md)
+    )
+    return int(cursor.lastrowid or 0)
+
+
+def delete_note(conn: sqlite3.Connection, concept_id: int, note_id: int) -> bool:
+    cursor = conn.execute(
+        "DELETE FROM notes WHERE id = ? AND concept_id = ?", (note_id, concept_id)
+    )
+    return cursor.rowcount > 0
+
+
+def list_tags(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT t.name, COUNT(ct.concept_id) AS count FROM tags t "
+        "JOIN concept_tags ct ON ct.tag_id = t.id "
+        "GROUP BY t.id ORDER BY count DESC, t.name"
+    ).fetchall()
+
+
+def get_concept_detail(conn: sqlite3.Connection, concept_id: int) -> dict[str, Any] | None:
+    concept = conn.execute("SELECT * FROM concepts WHERE id = ?", (concept_id,)).fetchone()
+    if concept is None:
+        return None
+    examples = conn.execute(
+        "SELECT title, code, output, comment FROM examples WHERE concept_id = ? ORDER BY ord",
+        (concept_id,),
+    ).fetchall()
+    exercise = conn.execute(
+        "SELECT id, prompt, starter_code, tests_json, hint FROM exercises "
+        "WHERE concept_id = ? LIMIT 1",
+        (concept_id,),
+    ).fetchone()
+    related = conn.execute(
+        "SELECT c.name FROM links l JOIN concepts c ON c.id = l.to_concept_id "
+        "WHERE l.from_concept_id = ? ORDER BY l.rowid",
+        (concept_id,),
+    ).fetchall()
+    notes = conn.execute(
+        "SELECT id, body_md, created_at FROM notes WHERE concept_id = ? ORDER BY id DESC",
+        (concept_id,),
+    ).fetchall()
+    return {
+        "concept": concept,
+        "examples": examples,
+        "exercise": exercise,
+        "failed_attempts": (
+            count_failed_attempts(conn, int(exercise["id"])) if exercise is not None else 0
+        ),
+        "related": [row["name"] for row in related],
+        "tags": tags_for_concepts(conn, [concept_id]).get(concept_id, []),
+        "notes": notes,
+    }
+
+
+def get_exercise(conn: sqlite3.Connection, exercise_id: int) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM exercises WHERE id = ?", (exercise_id,)
+    ).fetchone()
+    return row
+
+
+def insert_attempt(
+    conn: sqlite3.Connection,
+    exercise_id: int,
+    code: str,
+    passed: bool,
+    results_json: str,
+    duration_ms: int,
+) -> int:
+    cursor = conn.execute(
+        "INSERT INTO attempts (exercise_id, code, passed, results_json, duration_ms) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (exercise_id, code, int(passed), results_json, duration_ms),
+    )
+    return int(cursor.lastrowid or 0)
+
+
+def count_failed_attempts(conn: sqlite3.Connection, exercise_id: int) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS c FROM attempts WHERE exercise_id = ? AND passed = 0",
+        (exercise_id,),
+    ).fetchone()
+    return int(row["c"])
+
+
+def get_last_attempt(conn: sqlite3.Connection, exercise_id: int) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM attempts WHERE exercise_id = ? ORDER BY id DESC LIMIT 1",
+        (exercise_id,),
+    ).fetchone()
+    return row
+
+
+def insert_raw_note(
+    conn: sqlite3.Connection, question: str, language: str, raw_text: str, model: str | None
+) -> int:
+    base_name = question.strip()[:80] or "notatka"
+    name = base_name
+    for suffix in range(2, 20):
+        try:
+            cursor = conn.execute(
+                "INSERT INTO concepts (name, language, explanation, source_question, "
+                "model_used, status) VALUES (?, ?, ?, ?, ?, 'new')",
+                (name, language, raw_text, question, model),
+            )
+            return int(cursor.lastrowid or 0)
+        except sqlite3.IntegrityError:
+            name = f"{base_name} ({suffix})"
+    raise sqlite3.IntegrityError(f"nie udało się nadać unikalnej nazwy dla: {base_name}")
+
+
+def log_usage(
+    conn: sqlite3.Connection,
+    tokens_in: int | None,
+    tokens_out: int | None,
+    cost_usd: float | None,
+    mode: str,
+) -> None:
+    conn.execute(
+        "INSERT INTO usage_log (tokens_in, tokens_out, cost_usd, mode) VALUES (?, ?, ?, ?)",
+        (tokens_in, tokens_out, cost_usd, mode),
+    )

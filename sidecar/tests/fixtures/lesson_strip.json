@@ -1,0 +1,51 @@
+{
+  "concept": "str.strip()",
+  "language": "python",
+  "category": "stringi",
+  "signature": "str.strip(chars=None) -> str",
+  "tldr": "Usuwa białe znaki (albo wskazane znaki) z początku i końca napisu. Zwraca nowy napis — oryginał zostaje bez zmian.",
+  "explanation": "Metoda strip() zwraca kopię napisu z obciętymi z obu stron białymi znakami: spacjami, tabulatorami i znakami nowej linii. Przydaje się przy czyszczeniu danych wejściowych — np. tego, co wpisał użytkownik, albo pól wczytanych z pliku CSV. Z argumentem strip(chars) obcina dowolne znaki z podanego zestawu, dopóki napotyka któryś z nich. Nie usuwa niczego ze środka napisu i nie modyfikuje oryginału, bo napisy w Pythonie są niezmienne.",
+  "examples": [
+    {
+      "title": "Podstawowe użycie",
+      "code": "s = '  witaj  '\nprint(repr(s.strip()))",
+      "output": "'witaj'",
+      "comment": "repr() pokazuje, że spacje z obu stron zniknęły."
+    },
+    {
+      "title": "Własny zestaw znaków",
+      "code": "print('###uwaga###'.strip('#'))",
+      "output": "uwaga",
+      "comment": "Obcinane są wszystkie znaki z zestawu, nie dosłowny napis."
+    },
+    {
+      "title": "Czyszczenie wiersza z pliku",
+      "code": "line = 'Ala ma kota\\n'\nprint(repr(line.strip()))",
+      "output": "'Ala ma kota'",
+      "comment": "Typowe przy czytaniu plików linia po linii."
+    }
+  ],
+  "gotchas": [
+    "strip('abc') nie usuwa napisu 'abc', tylko dowolne z tych znaków — 'cabbage'.strip('abc') da 'ge'.",
+    "strip() nie rusza środka napisu — 'a b'.strip() to nadal 'a b'.",
+    "strip() zwraca nowy napis; samo s.strip() bez przypisania niczego nie zmienia."
+  ],
+  "related": ["str.lstrip()", "str.rstrip()", "str.removeprefix()", "str.split()"],
+  "exercise": {
+    "prompt": "Napisz funkcję clean_csv_row(row), która dostaje wiersz CSV jako napis, rozdziela go po przecinkach i zwraca listę pól oczyszczonych z białych znaków po obu stronach.",
+    "starter_code": "def clean_csv_row(row: str) -> list[str]:\n    ...",
+    "tests": [
+      {"call": "clean_csv_row('  a , b ,c  ')", "expected": "['a', 'b', 'c']"},
+      {"call": "clean_csv_row('jeden')", "expected": "['jeden']"},
+      {"call": "clean_csv_row(' x ,, y ')", "expected": "['x', '', 'y']"},
+      {"call": "clean_csv_row('')", "expected": "['']"}
+    ],
+    "hint": "Rozbij napis metodą split(','), a potem pomyśl, co zrobić z każdym elementem osobno.",
+    "solution": "def clean_csv_row(row: str) -> list[str]:\n    return [field.strip() for field in row.split(',')]"
+  },
+  "flashcards": [
+    {"q": "Co zwraca '  hi  '.strip()?", "a": "'hi'"},
+    {"q": "Czy strip() zmienia oryginalny napis?", "a": "Nie — zwraca nowy (napisy są niezmienne)."},
+    {"q": "Co robi 'xxabcxx'.strip('x')?", "a": "Zwraca 'abc' — obcina znaki 'x' z obu końców."}
+  ]
+}

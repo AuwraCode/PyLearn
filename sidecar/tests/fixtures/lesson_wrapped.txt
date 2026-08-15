@@ -1,0 +1,47 @@
+Oczywiście! Oto lekcja w formacie JSON:
+
+```json
+{
+  "concept": "list.append()",
+  "language": "python",
+  "category": "listy",
+  "signature": "list.append(x) -> None",
+  "tldr": "Dokłada jeden element na koniec listy, modyfikując ją w miejscu.",
+  "explanation": "Metoda append() dodaje pojedynczy element na koniec istniejącej listy. Działa w miejscu — modyfikuje listę i zwraca None, więc nie przypisuje się jej wyniku. Używa się jej przy budowaniu listy krok po kroku, np. w pętli. Nie służy do łączenia list — od tego jest extend() albo operator +.",
+  "examples": [
+    {
+      "title": "Dokładanie elementu",
+      "code": "nums = [1, 2]\nnums.append(3)\nprint(nums)",
+      "output": "[1, 2, 3]",
+      "comment": null
+    },
+    {
+      "title": "append zwraca None",
+      "code": "nums = [1]\nwynik = nums.append(2)\nprint(wynik)",
+      "output": "None",
+      "comment": "Częsty błąd: przypisanie wyniku append."
+    }
+  ],
+  "gotchas": [
+    "append([4, 5]) dodaje CAŁĄ listę jako jeden element, nie jej zawartość."
+  ],
+  "related": ["list.extend()", "list.insert()", "list.pop()"],
+  "exercise": {
+    "prompt": "Napisz funkcję evens(n), która zwraca listę liczb parzystych od 0 do n włącznie, budując ją przez append w pętli.",
+    "starter_code": "def evens(n: int) -> list[int]:\n    ...",
+    "tests": [
+      {"call": "evens(6)", "expected": "[0, 2, 4, 6]"},
+      {"call": "evens(0)", "expected": "[0]"},
+      {"call": "evens(1)", "expected": "[0]"}
+    ],
+    "hint": "Przejdź pętlą po range(n + 1) i sprawdzaj resztę z dzielenia przez 2.",
+    "solution": "def evens(n: int) -> list[int]:\n    result = []\n    for i in range(n + 1):\n        if i % 2 == 0:\n            result.append(i)\n    return result"
+  },
+  "flashcards": [
+    {"q": "Co zwraca list.append(x)?", "a": "None — modyfikuje listę w miejscu."},
+    {"q": "Jak dołączyć zawartość jednej listy do drugiej?", "a": "extend() albo operator +."}
+  ]
+}
+```
+
+Mam nadzieję, że lekcja się przyda!
