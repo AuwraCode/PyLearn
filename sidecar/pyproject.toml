@@ -1,0 +1,44 @@
+[project]
+name = "tutor-sidecar"
+version = "0.1.0"
+description = "Backend (sidecar) aplikacji PyLearn — FastAPI na localhoście"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+]
+
+[build-system]
+requires = ["uv_build>=0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx2>=0.1",
+    "mypy>=1.14",
+]
+build = [
+    "pyinstaller>=6.11",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Długość linii promptu to treść wysyłana do modelu, nie styl kodu.
+"tutor_sidecar/services/prompts.py" = ["E501"]
+
+[tool.mypy]
+strict = true
+packages = ["tutor_sidecar"]

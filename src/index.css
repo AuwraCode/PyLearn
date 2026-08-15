@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0e1116;
+  --color-surface: #151a21;
+  --color-raised: #1b212b;
+  --color-line: #262d38;
+  --color-fg: #e8e6e1;
+  --color-muted: #98a1b0;
+  --color-amber: #e5b95c;
+  --color-ok: #85c88a;
+  --color-err: #e4737f;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+body {
+  @apply bg-ink text-fg font-sans antialiased;
+}
+
+#root {
+  @apply h-screen;
+}
+
+/* kropkowana linia „karty katalogowej" między etykietą a wartością */
+.leader {
+  @apply flex-1 border-b border-dotted border-line;
+  transform: translateY(-0.3em);
+}
+
+/* sekcje lekcji pojawiają się jedna po drugiej (animation-delay per sekcja) */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal {
+  animation: rise-in 0.35s ease-out both;
+}
+
+.btn-primary {
+  @apply rounded-md bg-amber px-3 py-1.5 text-sm font-medium text-ink transition-opacity hover:opacity-90;
+}
+
+.btn-secondary {
+  @apply rounded-md border border-line px-3 py-1.5 text-sm transition-colors hover:bg-raised;
+}
+
+.btn-ghost {
+  @apply rounded-md px-3 py-1.5 text-sm text-muted transition-colors hover:text-fg;
+}
+
+/* podświetlenia trafień wyszukiwarki FTS */
+mark {
+  background-color: rgb(229 185 92 / 0.28);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

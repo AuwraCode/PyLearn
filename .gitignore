@@ -1,0 +1,10 @@
+# produkty budowania (reszta typowych wpisów jest w globalnym ~/.gitignore_global)
+dist/
+src-tauri/binaries/
+src-tauri/gen/schemas/
+sidecar/build/
+sidecar/dist/
+sidecar/dev-data/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
