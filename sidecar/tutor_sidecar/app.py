@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from tutor_sidecar import __version__
-from tutor_sidecar.api import ask, concepts, exercises, health
+from tutor_sidecar.api import ask, concepts, exercises, health, review, stats
 from tutor_sidecar.api.deps import verify_token
 from tutor_sidecar.config import (
     ALLOWED_ORIGINS,
@@ -103,4 +103,6 @@ def create_app(settings: Settings, provider: LlmProvider | None = None) -> FastA
     app.include_router(ask.router)
     app.include_router(concepts.router)
     app.include_router(exercises.router)
+    app.include_router(review.router)
+    app.include_router(stats.router)
     return app

@@ -319,6 +319,113 @@ def delete_note(conn: sqlite3.Connection, concept_id: int, note_id: int) -> bool
     return cursor.rowcount > 0
 
 
+def due_cards(conn: sqlite3.Connection, now: str, limit: int = 200) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT cd.id, cd.concept_id, cd.q, cd.a, cd.due_at, c.name AS concept_name "
+        "FROM cards cd JOIN concepts c ON c.id = cd.concept_id "
+        "WHERE cd.due_at <= ? ORDER BY cd.due_at LIMIT ?",
+        (now, limit),
+    ).fetchall()
+
+
+def count_due(conn: sqlite3.Connection, now: str) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS c FROM cards WHERE due_at <= ?", (now,)
+    ).fetchone()
+    return int(row["c"])
+
+
+def get_card(conn: sqlite3.Connection, card_id: int) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM cards WHERE id = ?", (card_id,)
+    ).fetchone()
+    return row
+
+
+def apply_card_review(
+    conn: sqlite3.Connection,
+    card_id: int,
+    *,
+    ease: float,
+    interval_days: float,
+    reps: int,
+    lapses: int,
+    due_at: str,
+    grade: int,
+) -> None:
+    conn.execute(
+        "UPDATE cards SET ease = ?, interval_days = ?, reps = ?, lapses = ?, due_at = ? "
+        "WHERE id = ?",
+        (ease, interval_days, reps, lapses, due_at, card_id),
+    )
+    conn.execute(
+        "INSERT INTO review_log (card_id, grade) VALUES (?, ?)", (card_id, grade)
+    )
+
+
+def concept_status_counts(conn: sqlite3.Connection) -> dict[str, int]:
+    rows = conn.execute(
+        f"SELECT c.status, COUNT(*) AS cnt FROM concepts c WHERE {_HAS_CONTENT} "
+        "GROUP BY c.status"
+    ).fetchall()
+    return {str(row["status"]): int(row["cnt"]) for row in rows}
+
+
+def exercise_stats(conn: sqlite3.Connection) -> dict[str, int]:
+    row = conn.execute(
+        "SELECT (SELECT COUNT(*) FROM exercises) AS total, "
+        "(SELECT COUNT(DISTINCT exercise_id) FROM attempts) AS attempted, "
+        "(SELECT COUNT(DISTINCT exercise_id) FROM attempts WHERE passed = 1) AS passed"
+    ).fetchone()
+    return {
+        "total": int(row["total"]),
+        "attempted": int(row["attempted"]),
+        "passed": int(row["passed"]),
+    }
+
+
+def review_stats(conn: sqlite3.Connection, now: str) -> dict[str, int]:
+    row = conn.execute(
+        "SELECT (SELECT COUNT(*) FROM cards) AS total_cards, "
+        "(SELECT COUNT(*) FROM cards WHERE due_at <= ?) AS due_now, "
+        "(SELECT COUNT(*) FROM review_log "
+        " WHERE date(created_at, 'localtime') = date('now', 'localtime')) AS done_today",
+        (now,),
+    ).fetchone()
+    return {
+        "total_cards": int(row["total_cards"]),
+        "due_now": int(row["due_now"]),
+        "done_today": int(row["done_today"]),
+    }
+
+
+def weak_spots(conn: sqlite3.Connection, limit: int = 5) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM ("
+        "  SELECT c.id, c.name, "
+        "    (SELECT COUNT(*) FROM attempts a JOIN exercises e ON e.id = a.exercise_id "
+        "     WHERE e.concept_id = c.id AND a.passed = 0) AS failed_attempts, "
+        "    (SELECT COALESCE(SUM(cd.lapses), 0) FROM cards cd "
+        "     WHERE cd.concept_id = c.id) AS lapses "
+        f"  FROM concepts c WHERE {_HAS_CONTENT}"
+        ") WHERE failed_attempts + lapses > 0 "
+        "ORDER BY failed_attempts + lapses DESC, name LIMIT ?",
+        (limit,),
+    ).fetchall()
+
+
+def activity_dates(conn: sqlite3.Connection) -> set[str]:
+    """Dni (lokalne) z jakąkolwiek aktywnością — zasila serię dni."""
+    rows = conn.execute(
+        "SELECT DISTINCT date(created_at, 'localtime') AS d FROM attempts "
+        "UNION SELECT DISTINCT date(created_at, 'localtime') FROM review_log "
+        "UNION SELECT DISTINCT date(created_at, 'localtime') FROM notes "
+        f"UNION SELECT DISTINCT date(c.created_at, 'localtime') FROM concepts c "
+        f"WHERE {_HAS_CONTENT}"
+    ).fetchall()
+    return {str(row["d"]) for row in rows if row["d"]}
+
+
 def list_tags(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return conn.execute(
         "SELECT t.name, COUNT(ct.concept_id) AS count FROM tags t "

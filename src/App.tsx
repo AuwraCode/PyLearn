@@ -8,6 +8,7 @@ import { ErrorScreen } from "./components/ErrorScreen";
 import { CommandPalette } from "./components/CommandPalette";
 import { AskView } from "./views/AskView";
 import { LibraryView } from "./views/LibraryView";
+import { ReviewView } from "./views/ReviewView";
 
 type Phase =
   | { t: "loading" }
@@ -71,8 +72,19 @@ export default function App() {
             onAsk={askQuestion}
           />
         </div>
+        {/* Powtórki montują się na wejściu — świeża kolejka przy każdej wizycie,
+            a ocenione karty i tak są już zapisane w bazie. */}
+        {view === "review" && (
+          <ReviewView
+            api={phase.api}
+            onOpenConcept={(id) => {
+              setLibraryTarget(id);
+              setView("library");
+            }}
+          />
+        )}
         {view === "status" && <StatusView api={phase.api} />}
-        {view !== "ask" && view !== "library" && view !== "status" && (
+        {view !== "ask" && view !== "library" && view !== "review" && view !== "status" && (
           <PlaceholderView view={view} />
         )}
       </main>

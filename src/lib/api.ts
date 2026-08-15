@@ -8,8 +8,11 @@ import type {
   HintResponse,
   PatchConceptBody,
   RawNoteResponse,
+  ReviewQueue,
+  ReviewResponse,
   RunResponse,
   SolutionResponse,
+  StatsResponse,
   TagList,
 } from "../types/api";
 import type { BackendInfo } from "./backend";
@@ -149,5 +152,20 @@ export class ApiClient {
 
   exerciseSolution(id: number): Promise<SolutionResponse> {
     return this.request<SolutionResponse>(`/exercises/${id}/solution`);
+  }
+
+  reviewDue(): Promise<ReviewQueue> {
+    return this.request<ReviewQueue>("/review/due");
+  }
+
+  postReview(cardId: number, grade: number): Promise<ReviewResponse> {
+    return this.request<ReviewResponse>(`/review/${cardId}`, {
+      method: "POST",
+      body: JSON.stringify({ grade }),
+    });
+  }
+
+  stats(): Promise<StatsResponse> {
+    return this.request<StatsResponse>("/stats");
   }
 }

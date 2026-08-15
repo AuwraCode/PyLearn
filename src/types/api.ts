@@ -147,6 +147,63 @@ export interface RawNoteResponse {
   concept_id: number;
 }
 
+export interface DueCard {
+  id: number;
+  concept_id: number;
+  concept_name: string;
+  q: string;
+  a: string;
+}
+
+export interface ReviewQueue {
+  items: DueCard[];
+  total: number;
+}
+
+export interface ReviewResponse {
+  card_id: number;
+  ease: number;
+  interval_days: number;
+  due_at: string;
+  remaining_due: number;
+}
+
+export interface StatusCounts {
+  total: number;
+  new: number;
+  learning: number;
+  known: number;
+}
+
+export interface ExerciseStats {
+  total: number;
+  attempted: number;
+  passed: number;
+  pass_rate: number;
+}
+
+export interface ReviewStats {
+  total_cards: number;
+  due_now: number;
+  done_today: number;
+}
+
+export interface WeakSpot {
+  concept_id: number;
+  name: string;
+  failed_attempts: number;
+  lapses: number;
+}
+
+export interface StatsResponse {
+  streak_days: number;
+  active_today: boolean;
+  concepts: StatusCounts;
+  exercises: ExerciseStats;
+  reviews: ReviewStats;
+  weak_spots: WeakSpot[];
+}
+
 /** Ustrukturyzowany błąd z backendu (detail w HTTPException). */
 export interface ApiErrorDetail {
   kind: string;

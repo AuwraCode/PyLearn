@@ -198,6 +198,67 @@ class SolutionResponse(BaseModel):
     hint: str | None
 
 
+class DueCard(BaseModel):
+    id: int
+    concept_id: int
+    concept_name: str
+    q: str
+    a: str
+
+
+class ReviewQueue(BaseModel):
+    items: list[DueCard]
+    total: int
+
+
+class ReviewRequest(BaseModel):
+    grade: int = Field(ge=0, le=3)
+
+
+class ReviewResponse(BaseModel):
+    card_id: int
+    ease: float
+    interval_days: float
+    due_at: str
+    remaining_due: int
+
+
+class StatusCounts(BaseModel):
+    total: int
+    new: int
+    learning: int
+    known: int
+
+
+class ExerciseStats(BaseModel):
+    total: int
+    attempted: int
+    passed: int
+    pass_rate: float
+
+
+class ReviewStats(BaseModel):
+    total_cards: int
+    due_now: int
+    done_today: int
+
+
+class WeakSpot(BaseModel):
+    concept_id: int
+    name: str
+    failed_attempts: int
+    lapses: int
+
+
+class StatsResponse(BaseModel):
+    streak_days: int
+    active_today: bool
+    concepts: StatusCounts
+    exercises: ExerciseStats
+    reviews: ReviewStats
+    weak_spots: list[WeakSpot]
+
+
 class RawNoteRequest(BaseModel):
     question: str = Field(min_length=1, max_length=500)
     language: str = "python"

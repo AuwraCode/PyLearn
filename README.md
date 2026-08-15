@@ -102,6 +102,9 @@ automatyzuje Findera i przy pierwszym uruchomieniu macOS pyta o zgodę.
 - [x] Etap 4 — biblioteka: wyszukiwarka FTS5 (bm25, fold diakrytyków, snippety
       z podświetleniem), filtry status/tag/język, edycja statusu i tagów,
       usuwanie ze sprzątaniem sierot, notatki własne, paleta poleceń Cmd+K.
-- [ ] Etap 5 — powtórki (SM-2) i statystyki
+- [x] Etap 5 — powtórki i statystyki: SM-2 wg spec (1 d → 3 d → ease×poprzedni,
+      reset z karą ease przy „nie pamiętam", floor 1.3), karta ze spacją
+      i ocenami 1–4 z klawiatury, migracja 0002 (`review_log`) z backupem bazy,
+      `/stats`: seria dni, % zadań, słabe obszary.
 - [ ] Etap 6 — graf i eksport do Markdown
 - [ ] Etap 7 — fallback SDK, streaming, motywy, kolejne języki
