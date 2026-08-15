@@ -14,9 +14,9 @@ interface LessonViewProps {
   onDeleted: () => void;
 }
 
-/** Sekcje lekcji w kolejności ze spec: TL;DR → wyjaśnienie → przykłady →
- * pułapki → powiązane → zadanie. Klasa `reveal` + rosnące opóźnienie dają
- * efekt pojawiania się sekcji jedna po drugiej. */
+/** Lekcja w trzech wyraźnych częściach: 1. Wyjaśnienie → 2. Przykłady →
+ * 3. Test. Numeracja to ścieżka nauki — uczysz się w tej kolejności.
+ * Klasa `reveal` + rosnące opóźnienie dają pojawianie się sekcji po kolei. */
 export function LessonView({
   detail,
   api,
@@ -30,6 +30,7 @@ export function LessonView({
     className: "reveal",
     style: { animationDelay: `${sectionIndex++ * 110}ms` },
   });
+  let partNumber = 0;
 
   return (
     <article className="mx-auto w-full max-w-2xl px-8 pb-16 pt-8">
@@ -58,28 +59,26 @@ export function LessonView({
         />
       </header>
 
-      {detail.tldr && (
-        <section {...reveal()}>
-          <div className="mt-6 rounded-lg border-l-2 border-amber bg-surface px-5 py-4">
-            <p className="text-base leading-relaxed">{detail.tldr}</p>
-          </div>
+      {(detail.tldr || detail.explanation) && (
+        <section {...reveal()} className="reveal mt-12">
+          <PartHeader number={++partNumber} title="Wyjaśnienie" />
+          {detail.tldr && (
+            <div className="mt-5 rounded-lg border-l-2 border-amber bg-surface px-5 py-4">
+              <p className="text-base leading-relaxed">{detail.tldr}</p>
+            </div>
+          )}
+          {detail.explanation && (
+            <p className="mt-5 whitespace-pre-wrap leading-relaxed text-fg/90">
+              {detail.explanation}
+            </p>
+          )}
         </section>
       )}
 
-      {detail.explanation && (
-        <section {...reveal()}>
-          <p className="mt-6 whitespace-pre-wrap leading-relaxed text-fg/90">
-            {detail.explanation}
-          </p>
-        </section>
-      )}
-
-      {detail.examples.length > 0 && (
-        <section {...reveal()}>
-          <h2 className="mt-10 text-xs font-medium uppercase tracking-widest text-muted">
-            Przykłady
-          </h2>
-          <div className="mt-3 space-y-5">
+      {(detail.examples.length > 0 || detail.gotchas.length > 0) && (
+        <section {...reveal()} className="reveal mt-12">
+          <PartHeader number={++partNumber} title="Przykłady" />
+          <div className="mt-5 space-y-5">
             {detail.examples.map((example, i) => (
               <figure key={i}>
                 <figcaption className="mb-1.5 text-sm font-medium">{example.title}</figcaption>
@@ -90,30 +89,38 @@ export function LessonView({
               </figure>
             ))}
           </div>
+          {detail.gotchas.length > 0 && (
+            <div className="mt-7">
+              <h3 className="text-xs font-medium uppercase tracking-widest text-amber">
+                Pułapki
+              </h3>
+              <ul className="mt-3 space-y-2">
+                {detail.gotchas.map((gotcha, i) => (
+                  <li key={i} className="flex gap-3 text-sm leading-relaxed">
+                    <span className="mt-0.5 shrink-0 font-mono text-amber" aria-hidden>
+                      !
+                    </span>
+                    <span>{gotcha}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 
-      {detail.gotchas.length > 0 && (
-        <section {...reveal()}>
-          <h2 className="mt-10 text-xs font-medium uppercase tracking-widest text-muted">
-            Pułapki
-          </h2>
-          <ul className="mt-3 space-y-2">
-            {detail.gotchas.map((gotcha, i) => (
-              <li key={i} className="flex gap-3 text-sm leading-relaxed">
-                <span className="mt-0.5 shrink-0 font-mono text-amber" aria-hidden>
-                  !
-                </span>
-                <span>{gotcha}</span>
-              </li>
-            ))}
-          </ul>
+      {detail.exercise && (
+        <section {...reveal()} className="reveal mt-12">
+          <PartHeader number={++partNumber} title="Test" />
+          <div className="mt-5">
+            <ExercisePanel exercise={detail.exercise} api={api} language={detail.language} />
+          </div>
         </section>
       )}
 
       {detail.related.length > 0 && (
-        <section {...reveal()}>
-          <h2 className="mt-10 text-xs font-medium uppercase tracking-widest text-muted">
+        <section {...reveal()} className="reveal mt-14 border-t border-dotted border-line pt-6">
+          <h2 className="text-xs font-medium uppercase tracking-widest text-muted">
             Powiązane pojęcia
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -132,15 +139,24 @@ export function LessonView({
         </section>
       )}
 
-      {detail.exercise && (
-        <section {...reveal()} className="reveal mt-10">
-          <ExercisePanel exercise={detail.exercise} api={api} language={detail.language} />
-        </section>
-      )}
-
       <section {...reveal()} className="reveal">
         <NotesSection detail={detail} api={api} onDetailChange={onDetailChange} />
       </section>
     </article>
+  );
+}
+
+function PartHeader({ number, title }: { number: number; title: string }) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-md border border-amber/40 bg-amber/10 font-mono text-base font-semibold text-amber"
+        aria-hidden
+      >
+        {number}
+      </span>
+      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      <span className="leader" aria-hidden />
+    </div>
   );
 }

@@ -8,6 +8,14 @@ import { CodeBlock } from "./CodeBlock";
 const WARNING_ACK_KEY = "pylearn.runWarningAck";
 const SOLUTION_UNLOCK_FAILS = 2;
 
+const FILE_NAME: Record<string, string> = {
+  python: "rozwiazanie.py",
+  javascript: "rozwiazanie.js",
+  typescript: "rozwiazanie.ts",
+  rust: "rozwiazanie.rs",
+  sql: "zapytanie.sql",
+};
+
 interface ExercisePanelProps {
   exercise: ExerciseOut;
   api: ApiClient;
@@ -50,6 +58,7 @@ export function ExercisePanel({ exercise, api, language }: ExercisePanelProps) {
   };
 
   const requestRun = () => {
+    if (!runnable || running) return;
     if (!warningAck) {
       setWarningPending(true);
       return;
@@ -91,13 +100,46 @@ export function ExercisePanel({ exercise, api, language }: ExercisePanelProps) {
   const solutionUnlocked = failedAttempts >= SOLUTION_UNLOCK_FAILS;
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-5">
-      <h2 className="text-xs font-medium uppercase tracking-widest text-amber">Zadanie</h2>
-      <p className="mt-3 leading-relaxed">{exercise.prompt}</p>
+    <div>
+      <p className="leading-relaxed">{exercise.prompt}</p>
 
-      <div className="mt-4">
-        <CodeEditor initialCode={exercise.starter_code} onChange={(code) => (codeRef.current = code)} />
+      {/* Okno edytora: pasek tytułu z zakładką pliku, gutter z numerami linii,
+          pasek statusu — ma wyglądać dosłownie jak edytor kodu. */}
+      <div className="mt-4 overflow-hidden rounded-lg border border-line bg-[#0a0d13] shadow-lg shadow-black/20 focus-within:border-amber/50">
+        <div className="flex items-center gap-1.5 border-b border-line bg-raised px-3 py-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" aria-hidden />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" aria-hidden />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" aria-hidden />
+          <span className="ml-3 rounded-t border-b-2 border-amber bg-ink px-3 py-1 font-mono text-xs text-fg">
+            {FILE_NAME[language] ?? "rozwiazanie.txt"}
+          </span>
+          <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted">
+            {language}
+          </span>
+        </div>
+
+        <CodeEditor
+          initialCode={exercise.starter_code}
+          onChange={(code) => (codeRef.current = code)}
+          onRun={requestRun}
+        />
+
+        <div className="flex items-center justify-between border-t border-line bg-raised px-3 py-1.5 font-mono text-[10px] text-muted">
+          <span>
+            {language} · UTF-8 · {exercise.tests_count}{" "}
+            {exercise.tests_count === 1 ? "test" : "testy"}
+          </span>
+          {runnable && <span>⌘↵ / Ctrl+Enter — uruchom testy</span>}
+        </div>
       </div>
+
+      {!runnable && (
+        <p className="mt-3 text-xs text-muted">
+          Uruchamianie testów jest na razie dostępne tylko dla Pythona — dla języka „
+          {language}" rozwiąż zadanie i porównaj z rozwiązaniem albo poproś AI o
+          podpowiedź.
+        </p>
+      )}
 
       {warningPending && !warningAck && (
         <div className="mt-4 rounded-lg border border-amber/40 bg-ink p-4 text-sm">
@@ -117,14 +159,6 @@ export function ExercisePanel({ exercise, api, language }: ExercisePanelProps) {
         </div>
       )}
 
-      {!runnable && (
-        <p className="mt-3 text-xs text-muted">
-          Uruchamianie testów jest na razie dostępne tylko dla Pythona — dla języka „
-          {language}" rozwiąż zadanie i porównaj z rozwiązaniem albo poproś AI o
-          podpowiedź.
-        </p>
-      )}
-
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -132,7 +166,7 @@ export function ExercisePanel({ exercise, api, language }: ExercisePanelProps) {
           disabled={running || !runnable}
           className="btn-primary disabled:opacity-50"
         >
-          {running ? "Uruchamiam…" : "Uruchom testy"}
+          {running ? "Uruchamiam…" : "▶ Uruchom testy"}
         </button>
         {exercise.hint && (
           <button
