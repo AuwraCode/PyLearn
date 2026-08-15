@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { subscribeBackend, type BackendFailure } from "./lib/backend";
 import { ApiClient } from "./lib/api";
-import { Sidebar, NAV, type ViewId } from "./components/Sidebar";
+import { Sidebar, type ViewId } from "./components/Sidebar";
 import { StatusView } from "./components/StatusView";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { ErrorScreen } from "./components/ErrorScreen";
@@ -9,6 +9,8 @@ import { CommandPalette } from "./components/CommandPalette";
 import { AskView } from "./views/AskView";
 import { LibraryView } from "./views/LibraryView";
 import { ReviewView } from "./views/ReviewView";
+import { GraphView } from "./views/GraphView";
+import { SettingsView } from "./views/SettingsView";
 
 type Phase =
   | { t: "loading" }
@@ -83,10 +85,19 @@ export default function App() {
             }}
           />
         )}
-        {view === "status" && <StatusView api={phase.api} />}
-        {view !== "ask" && view !== "library" && view !== "review" && view !== "status" && (
-          <PlaceholderView view={view} />
+        {/* Graf montuje się na wejściu — świeży układ i dane przy każdej wizycie. */}
+        {view === "graph" && (
+          <GraphView
+            api={phase.api}
+            onOpenConcept={(id) => {
+              setLibraryTarget(id);
+              setView("library");
+            }}
+            onAsk={askQuestion}
+          />
         )}
+        {view === "settings" && <SettingsView api={phase.api} />}
+        {view === "status" && <StatusView api={phase.api} />}
       </main>
       {paletteOpen && (
         <CommandPalette
@@ -104,13 +115,3 @@ export default function App() {
   );
 }
 
-function PlaceholderView({ view }: { view: ViewId }) {
-  const item = NAV.find((n) => n.id === view);
-  if (!item) return null;
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-2">
-      <h1 className="text-xl font-semibold">{item.label}</h1>
-      <p className="text-sm text-muted">Ten widok powstanie w etapie {item.stage}.</p>
-    </div>
-  );
-}

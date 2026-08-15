@@ -259,6 +259,39 @@ class StatsResponse(BaseModel):
     weak_spots: list[WeakSpot]
 
 
+class GraphNode(BaseModel):
+    id: int
+    name: str
+    status: Literal["new", "learning", "known"]
+    # False = placeholder z `related` („biała plama") — w grafie pusty okrąg,
+    # klik proponuje pytanie zamiast otwierać notatkę.
+    has_content: bool
+    degree: int
+
+
+class GraphEdge(BaseModel):
+    from_id: int
+    to_id: int
+    kind: Literal["related", "manual"]
+
+
+class GraphResponse(BaseModel):
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+
+
+class ExportRequest(BaseModel):
+    format: Literal["markdown", "json"]
+    # Pusta ścieżka → domyślny katalog (~/Documents/PyLearn-eksport).
+    path: str = ""
+
+
+class ExportResponse(BaseModel):
+    format: Literal["markdown", "json"]
+    path: str
+    files_written: int
+
+
 class RawNoteRequest(BaseModel):
     question: str = Field(min_length=1, max_length=500)
     language: str = "python"

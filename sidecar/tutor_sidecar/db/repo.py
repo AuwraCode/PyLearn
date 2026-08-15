@@ -319,6 +319,65 @@ def delete_note(conn: sqlite3.Connection, concept_id: int, note_id: int) -> bool
     return cursor.rowcount > 0
 
 
+def graph_nodes(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT c.id, c.name, c.status, "
+        "(c.tldr IS NOT NULL OR c.explanation IS NOT NULL) AS has_content, "
+        "(SELECT COUNT(*) FROM links l "
+        " WHERE l.from_concept_id = c.id OR l.to_concept_id = c.id) AS degree "
+        "FROM concepts c"
+    ).fetchall()
+
+
+def graph_edges(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT from_concept_id, to_concept_id, kind FROM links ORDER BY rowid"
+    ).fetchall()
+
+
+def all_content_concept_ids(conn: sqlite3.Connection) -> list[int]:
+    rows = conn.execute(
+        f"SELECT c.id FROM concepts c WHERE {_HAS_CONTENT} ORDER BY c.name"
+    ).fetchall()
+    return [int(row["id"]) for row in rows]
+
+
+def cards_for_concept(conn: sqlite3.Connection, concept_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT q, a FROM cards WHERE concept_id = ? ORDER BY id", (concept_id,)
+    ).fetchall()
+
+
+def exercise_full(conn: sqlite3.Connection, concept_id: int) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM exercises WHERE concept_id = ? LIMIT 1", (concept_id,)
+    ).fetchone()
+    return row
+
+
+def dump_tables(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
+    """Pełny zrzut danych do backupu/re-importu (bez tabel wirtualnych FTS)."""
+    tables = [
+        "schema_version",
+        "concepts",
+        "examples",
+        "exercises",
+        "attempts",
+        "notes",
+        "tags",
+        "concept_tags",
+        "links",
+        "cards",
+        "usage_log",
+        "review_log",
+    ]
+    dump: dict[str, list[dict[str, Any]]] = {}
+    for table in tables:
+        rows = conn.execute(f"SELECT * FROM {table}").fetchall()
+        dump[table] = [dict(row) for row in rows]
+    return dump
+
+
 def due_cards(conn: sqlite3.Connection, now: str, limit: int = 200) -> list[sqlite3.Row]:
     return conn.execute(
         "SELECT cd.id, cd.concept_id, cd.q, cd.a, cd.due_at, c.name AS concept_name "

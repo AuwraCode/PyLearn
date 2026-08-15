@@ -106,5 +106,8 @@ automatyzuje Findera i przy pierwszym uruchomieniu macOS pyta o zgodę.
       reset z karą ease przy „nie pamiętam", floor 1.3), karta ze spacją
       i ocenami 1–4 z klawiatury, migracja 0002 (`review_log`) z backupem bazy,
       `/stats`: seria dni, % zadań, słabe obszary.
-- [ ] Etap 6 — graf i eksport do Markdown
+- [x] Etap 6 — graf i eksport: force-directed na canvasie (kolor wg statusu,
+      „białe plamy" jako puste okręgi — klik zadaje pytanie), eksport Markdown
+      pod Obsidiana (frontmatter YAML z aliasami, linki [[wiki]], index.md)
+      i pełny backup JSON; sekcja Eksport w Ustawieniach.
 - [ ] Etap 7 — fallback SDK, streaming, motywy, kolejne języki

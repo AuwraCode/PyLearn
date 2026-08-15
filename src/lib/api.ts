@@ -4,6 +4,8 @@ import type {
   ConceptDetail,
   ConceptList,
   ConceptSearchParams,
+  ExportResponse,
+  GraphResponse,
   HealthResponse,
   HintResponse,
   PatchConceptBody,
@@ -167,5 +169,16 @@ export class ApiClient {
 
   stats(): Promise<StatsResponse> {
     return this.request<StatsResponse>("/stats");
+  }
+
+  graph(): Promise<GraphResponse> {
+    return this.request<GraphResponse>("/graph");
+  }
+
+  exportData(format: "markdown" | "json", path: string): Promise<ExportResponse> {
+    return this.request<ExportResponse>("/export", {
+      method: "POST",
+      body: JSON.stringify({ format, path }),
+    });
   }
 }

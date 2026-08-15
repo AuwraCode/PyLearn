@@ -1,9 +1,9 @@
 export const NAV = [
-  { id: "ask", label: "Pytaj", stage: 2 },
-  { id: "library", label: "Biblioteka", stage: 4 },
-  { id: "review", label: "Powtórki", stage: 5 },
-  { id: "graph", label: "Graf", stage: 6 },
-  { id: "settings", label: "Ustawienia", stage: 7 },
+  { id: "ask", label: "Pytaj" },
+  { id: "library", label: "Biblioteka" },
+  { id: "review", label: "Powtórki" },
+  { id: "graph", label: "Graf" },
+  { id: "settings", label: "Ustawienia" },
 ] as const;
 
 export type ViewId = (typeof NAV)[number]["id"] | "status";

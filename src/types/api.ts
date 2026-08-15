@@ -204,6 +204,32 @@ export interface StatsResponse {
   weak_spots: WeakSpot[];
 }
 
+export interface GraphNode {
+  id: number;
+  name: string;
+  status: ConceptStatus;
+  /** false = placeholder z `related` („biała plama"). */
+  has_content: boolean;
+  degree: number;
+}
+
+export interface GraphEdge {
+  from_id: number;
+  to_id: number;
+  kind: "related" | "manual";
+}
+
+export interface GraphResponse {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface ExportResponse {
+  format: "markdown" | "json";
+  path: string;
+  files_written: number;
+}
+
 /** Ustrukturyzowany błąd z backendu (detail w HTTPException). */
 export interface ApiErrorDetail {
   kind: string;
