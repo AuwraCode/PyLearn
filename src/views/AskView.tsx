@@ -3,7 +3,8 @@ import type { ApiClient } from "../lib/api";
 import { ApiError } from "../lib/api";
 import type { AskStatus, ConceptDetail, ConceptSummary } from "../types/api";
 import { LessonView } from "../components/LessonView";
-import { LANGUAGES, LEVELS } from "../lib/labels";
+import { LanguagePicker } from "../components/LanguagePicker";
+import { LEVELS, PRIMARY_LANGUAGES } from "../lib/labels";
 
 const BANNERS: Partial<Record<AskStatus, string>> = {
   filled: "Wypełniona biała plama z grafu — to pojęcie czekało na naukę.",
@@ -29,7 +30,7 @@ export function AskView({ api, askTarget, onAskTargetConsumed, onGoSettings }: A
   const [state, setState] = useState<AskState>({ t: "idle" });
   const [question, setQuestion] = useState("");
   const [level, setLevel] = useState<string>(LEVELS[0]);
-  const [language, setLanguage] = useState<string>(LANGUAGES[0]);
+  const [language, setLanguage] = useState<string>(PRIMARY_LANGUAGES[0].id);
   const [recent, setRecent] = useState<ConceptSummary[]>([]);
 
   useEffect(() => {
@@ -251,38 +252,15 @@ export function AskView({ api, askTarget, onAskTargetConsumed, onGoSettings }: A
             placeholder="np. co robi strip()?"
             className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-lg outline-none transition-colors placeholder:text-muted/60 focus:border-amber"
           />
-          <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-muted">
-                język
-                <select
-                  value={language}
-                  onChange={(event) => setLanguage(event.target.value)}
-                  className="rounded-md border border-line bg-surface px-2 py-1 font-mono text-fg outline-none focus:border-amber"
-                >
-                  {LANGUAGES.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex items-center gap-2 text-muted">
-                poziom
-                <select
-                  value={level}
-                  onChange={(event) => setLevel(event.target.value)}
-                  className="rounded-md border border-line bg-surface px-2 py-1 text-fg outline-none focus:border-amber"
-                >
-                  {LEVELS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <span className="shrink-0 text-xs text-muted">Enter — wyślij</span>
+          {/* jak w Claude: wybór (język · poziom) po prawej, pod polem pytania */}
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-xs text-muted/70">Enter — wyślij</span>
+            <LanguagePicker
+              language={language}
+              level={level}
+              onLanguage={setLanguage}
+              onLevel={setLevel}
+            />
           </div>
         </form>
 

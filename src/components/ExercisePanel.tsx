@@ -14,6 +14,15 @@ const FILE_NAME: Record<string, string> = {
   typescript: "rozwiazanie.ts",
   rust: "rozwiazanie.rs",
   sql: "zapytanie.sql",
+  go: "rozwiazanie.go",
+  java: "Rozwiazanie.java",
+  "c#": "Rozwiazanie.cs",
+  "c++": "rozwiazanie.cpp",
+  bash: "rozwiazanie.sh",
+  php: "rozwiazanie.php",
+  kotlin: "Rozwiazanie.kt",
+  swift: "rozwiazanie.swift",
+  "html/css": "index.html",
 };
 
 interface ExercisePanelProps {
