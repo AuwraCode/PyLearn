@@ -109,6 +109,10 @@ automatyzuje Findera i przy pierwszym uruchomieniu macOS pyta o zgodę.
       wyjścia 64 KB, rlimity na Linuksie), edytor CodeMirror, panel wyników per
       test, podpowiedzi AI bez gotowca, rozwiązanie po 2 nieudanych próbach,
       historia prób w `attempts`.
+      *Aktualizacja:* pisanie kodu w aplikacji wycofane na życzenie — sekcja
+      Test prezentuje zadanie jako przykład (treść, kod startowy, przykładowe
+      wywołania, rozwijana podpowiedź i rozwiązanie). Endpointy runnera
+      zostają w backendzie na wypadek powrotu funkcji.
 - [x] Etap 4 — biblioteka: wyszukiwarka FTS5 (bm25, fold diakrytyków, snippety
       z podświetleniem), filtry status/tag/język, edycja statusu i tagów,
       usuwanie ze sprzątaniem sierot, notatki własne, paleta poleceń Cmd+K.

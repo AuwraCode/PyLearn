@@ -7,15 +7,12 @@ import type {
   ExportResponse,
   GraphResponse,
   HealthResponse,
-  HintResponse,
   PatchConceptBody,
   PatchSettingsBody,
   RawNoteResponse,
   ReviewQueue,
   ReviewResponse,
-  RunResponse,
   SettingsResponse,
-  SolutionResponse,
   StatsResponse,
   TagList,
   UsageResponse,
@@ -139,24 +136,6 @@ export class ApiClient {
       method: "POST",
       body: JSON.stringify({ question, language, raw_text: rawText }),
     });
-  }
-
-  runExercise(id: number, code: string): Promise<RunResponse> {
-    return this.request<RunResponse>(`/exercises/${id}/run`, {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    });
-  }
-
-  exerciseHint(id: number, code: string): Promise<HintResponse> {
-    return this.request<HintResponse>(`/exercises/${id}/hint`, {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    });
-  }
-
-  exerciseSolution(id: number): Promise<SolutionResponse> {
-    return this.request<SolutionResponse>(`/exercises/${id}/solution`);
   }
 
   reviewDue(): Promise<ReviewQueue> {

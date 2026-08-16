@@ -84,42 +84,19 @@ export interface ExampleOut {
   comment: string | null;
 }
 
+export interface ExerciseTestCase {
+  call: string;
+  expected: string;
+}
+
+/** Zadanie prezentowane jako przykład do samodzielnego rozwiązania. */
 export interface ExerciseOut {
   id: number;
   prompt: string;
   starter_code: string;
-  tests_count: number;
+  tests: ExerciseTestCase[];
   hint: string | null;
-  failed_attempts: number;
-}
-
-export interface TestResult {
-  call: string;
-  expected: string;
-  got: string | null;
-  passed: boolean;
-  error: string | null;
-}
-
-export interface RunResponse {
-  passed: boolean;
-  timed_out: boolean;
-  setup_error: string | null;
-  tests: TestResult[];
-  stdout: string;
-  stderr: string;
-  duration_ms: number;
-  failed_attempts: number;
-  python: string;
-}
-
-export interface HintResponse {
-  hint: string;
-}
-
-export interface SolutionResponse {
   solution: string | null;
-  hint: string | null;
 }
 
 export interface ConceptDetail {

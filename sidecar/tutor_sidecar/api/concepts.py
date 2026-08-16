@@ -15,6 +15,7 @@ from tutor_sidecar.models import (
     ConceptSummary,
     ExampleOut,
     ExerciseOut,
+    ExerciseTestOut,
     NoteCreatedResponse,
     NoteOut,
     PatchConceptRequest,
@@ -98,9 +99,12 @@ def get_concept(concept_id: int, request: Request) -> ConceptDetail:
             id=exercise_row["id"],
             prompt=exercise_row["prompt"],
             starter_code=exercise_row["starter_code"],
-            tests_count=len(json.loads(exercise_row["tests_json"])),
+            tests=[
+                ExerciseTestOut(call=test["call"], expected=test["expected"])
+                for test in json.loads(exercise_row["tests_json"])
+            ],
             hint=exercise_row["hint"],
-            failed_attempts=detail["failed_attempts"],
+            solution=exercise_row["solution"],
         )
     return ConceptDetail(
         id=concept["id"],

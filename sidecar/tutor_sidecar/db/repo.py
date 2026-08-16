@@ -515,7 +515,7 @@ def get_concept_detail(conn: sqlite3.Connection, concept_id: int) -> dict[str, A
         (concept_id,),
     ).fetchall()
     exercise = conn.execute(
-        "SELECT id, prompt, starter_code, tests_json, hint FROM exercises "
+        "SELECT id, prompt, starter_code, tests_json, hint, solution FROM exercises "
         "WHERE concept_id = ? LIMIT 1",
         (concept_id,),
     ).fetchone()
@@ -532,9 +532,6 @@ def get_concept_detail(conn: sqlite3.Connection, concept_id: int) -> dict[str, A
         "concept": concept,
         "examples": examples,
         "exercise": exercise,
-        "failed_attempts": (
-            count_failed_attempts(conn, int(exercise["id"])) if exercise is not None else 0
-        ),
         "related": [row["name"] for row in related],
         "tags": tags_for_concepts(conn, [concept_id]).get(concept_id, []),
         "notes": notes,

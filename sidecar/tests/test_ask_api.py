@@ -39,8 +39,11 @@ def test_ask_roundtrip_with_detail_and_listing(client: TestClient) -> None:
     assert detail["name"] == "str.strip()"
     assert detail["signature"] == "str.strip(chars=None) -> str"
     assert len(detail["examples"]) == 3
-    assert detail["exercise"]["tests_count"] == 4
-    assert "solution" not in detail["exercise"]  # rozwiązania nie wysyłamy do UI
+    assert len(detail["exercise"]["tests"]) == 4
+    assert detail["exercise"]["tests"][0]["call"].startswith("clean_csv_row")
+    # zadanie jest teraz prezentowane jako przykład — rozwiązanie jedzie do UI
+    assert detail["exercise"]["solution"] is not None
+    assert detail["exercise"]["hint"] is not None
     assert len(detail["related"]) == 4
     assert len(detail["gotchas"]) == 3
 

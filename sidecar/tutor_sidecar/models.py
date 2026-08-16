@@ -101,13 +101,21 @@ class ExampleOut(BaseModel):
     comment: str | None
 
 
+class ExerciseTestOut(BaseModel):
+    call: str
+    expected: str
+
+
 class ExerciseOut(BaseModel):
+    # Zadanie prezentowane jako przykład do samodzielnego rozwiązania poza
+    # aplikacją — z treścią, kodem startowym, przykładowymi wywołaniami,
+    # podpowiedzią i rozwiązaniem (rozwijanym w UI).
     id: int
     prompt: str
     starter_code: str
-    tests_count: int
+    tests: list[ExerciseTestOut]
     hint: str | None
-    failed_attempts: int
+    solution: str | None
 
 
 class NoteOut(BaseModel):

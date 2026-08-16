@@ -1,7 +1,6 @@
-import type { ConceptDetail } from "../types/api";
+import type { ConceptDetail, ExerciseOut } from "../types/api";
 import type { ApiClient } from "../lib/api";
 import { CodeBlock } from "./CodeBlock";
-import { ExercisePanel } from "./ExercisePanel";
 import { ConceptMeta } from "./ConceptMeta";
 import { NotesSection } from "./NotesSection";
 
@@ -113,7 +112,7 @@ export function LessonView({
         <section {...reveal()} className="reveal mt-12">
           <PartHeader number={++partNumber} title="Test" />
           <div className="mt-5">
-            <ExercisePanel exercise={detail.exercise} api={api} language={detail.language} />
+            <ExerciseCard exercise={detail.exercise} />
           </div>
         </section>
       )}
@@ -143,6 +142,68 @@ export function LessonView({
         <NotesSection detail={detail} api={api} onDetailChange={onDetailChange} />
       </section>
     </article>
+  );
+}
+
+/** Ćwiczenie jako przykład: treść, kod startowy do skopiowania, przykładowe
+ * wywołania z wynikami; podpowiedź i rozwiązanie rozwijane na życzenie. */
+function ExerciseCard({ exercise }: { exercise: ExerciseOut }) {
+  return (
+    <div>
+      <p className="leading-relaxed">{exercise.prompt}</p>
+
+      <div className="mt-4">
+        <CodeBlock code={exercise.starter_code} />
+      </div>
+
+      {exercise.tests.length > 0 && (
+        <div className="mt-5">
+          <h3 className="text-xs font-medium uppercase tracking-widest text-muted">
+            Przykładowe wywołania
+          </h3>
+          <ul className="mt-2 space-y-1.5">
+            {exercise.tests.map((test, index) => (
+              <li key={index} className="flex flex-wrap items-baseline gap-2 font-mono text-sm">
+                <code>{test.call}</code>
+                <span className="text-muted" aria-hidden>
+                  →
+                </span>
+                <code className="text-ok">{test.expected}</code>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {exercise.hint && (
+        <details className="group/hint mt-5">
+          <summary className="cursor-pointer select-none text-sm text-muted hover:text-fg">
+            <span className="group-open/hint:hidden">Pokaż podpowiedź</span>
+            <span className="hidden group-open/hint:inline">Ukryj podpowiedź</span>
+          </summary>
+          <p className="mt-2 rounded-lg border border-dotted border-line px-4 py-3 text-sm text-muted">
+            {exercise.hint}
+          </p>
+        </details>
+      )}
+
+      {exercise.solution && (
+        <details className="group/sol mt-3">
+          <summary className="cursor-pointer select-none text-sm text-muted hover:text-fg">
+            <span className="group-open/sol:hidden">Pokaż rozwiązanie</span>
+            <span className="hidden group-open/sol:inline">Ukryj rozwiązanie</span>
+          </summary>
+          <div className="mt-2">
+            <CodeBlock code={exercise.solution} />
+          </div>
+        </details>
+      )}
+
+      <p className="mt-4 text-xs text-muted">
+        Rozwiąż zadanie we własnym edytorze — kod startowy skopiujesz przyciskiem na
+        bloku powyżej.
+      </p>
+    </div>
   );
 }
 

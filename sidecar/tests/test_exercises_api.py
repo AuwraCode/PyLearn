@@ -72,11 +72,6 @@ def test_failed_runs_unlock_solution_after_two(
     assert unlocked.status_code == 200
     assert "clean_csv_row" in unlocked.json()["solution"]
 
-    # licznik nieudanych prób jest też w detalu konceptu (stan po ponownym otwarciu)
-    concepts = client.get("/concepts", headers=HEADERS).json()["items"]
-    detail = client.get(f"/concepts/{concepts[0]['id']}", headers=HEADERS).json()
-    assert detail["exercise"]["failed_attempts"] == 2
-
 
 def test_attempts_are_persisted(setup: tuple[TestClient, int, Path]) -> None:
     client, exercise_id, db_path = setup
