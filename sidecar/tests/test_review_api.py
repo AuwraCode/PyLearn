@@ -37,6 +37,11 @@ def test_due_queue_and_grading_flow(setup: tuple[TestClient, Path]) -> None:
     card = queue["items"][0]
     assert card["concept_name"] == "str.strip()"
     assert card["q"] and card["a"]
+    # test ABCD: poprawna odpowiedź wśród opcji, dystraktory z innych fiszek,
+    # bez duplikatów
+    assert card["a"] in card["options"]
+    assert 2 <= len(card["options"]) <= 4
+    assert len(set(card["options"])) == len(card["options"])
 
     graded = client.post(f"/review/{card['id']}", json={"grade": 2}, headers=HEADERS)
     assert graded.status_code == 200

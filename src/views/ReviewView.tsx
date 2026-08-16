@@ -4,12 +4,7 @@ import { ApiError } from "../lib/api";
 import type { DueCard, StatsResponse } from "../types/api";
 import { STATUS_DOT_CLASS } from "../lib/labels";
 
-const GRADES = [
-  { grade: 0, key: "1", label: "Nie pamiętam", className: "border-err/40 text-err" },
-  { grade: 1, key: "2", label: "Trudne", className: "border-amber/40 text-amber" },
-  { grade: 2, key: "3", label: "Dobrze", className: "border-line text-fg" },
-  { grade: 3, key: "4", label: "Łatwe", className: "border-ok/40 text-ok" },
-] as const;
+const LETTERS = ["A", "B", "C", "D"];
 
 interface ReviewViewProps {
   api: ApiClient;
@@ -18,12 +13,20 @@ interface ReviewViewProps {
 
 type Phase = "loading" | "session" | "done" | "error";
 
+interface Answered {
+  chosen: number;
+  correct: boolean;
+}
+
+/** Test ABCD: aplikacja sama ocenia — trafiona odpowiedź to w SM-2 „dobrze",
+ * pomyłka resetuje kartę jak „nie pamiętam". Bez samooceny. */
 export function ReviewView({ api, onOpenConcept }: ReviewViewProps) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [queue, setQueue] = useState<DueCard[]>([]);
   const [index, setIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
+  const [answered, setAnswered] = useState<Answered | null>(null);
   const [reviewed, setReviewed] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,7 +44,8 @@ export function ReviewView({ api, onOpenConcept }: ReviewViewProps) {
         setQueue(result.items);
         setIndex(0);
         setReviewed(0);
-        setRevealed(false);
+        setCorrectCount(0);
+        setAnswered(null);
         setPhase(result.items.length > 0 ? "session" : "done");
       })
       .catch((err: unknown) => {
@@ -53,28 +57,34 @@ export function ReviewView({ api, onOpenConcept }: ReviewViewProps) {
 
   const card = queue[index];
 
-  const grade = useCallback(
-    (value: number) => {
-      if (!card) return;
+  const choose = useCallback(
+    (optionIndex: number) => {
+      if (!card || answered || optionIndex >= card.options.length) return;
+      const correct = card.options[optionIndex] === card.a;
+      setAnswered({ chosen: optionIndex, correct });
       setError(null);
       api
-        .postReview(card.id, value)
+        .postReview(card.id, correct ? 2 : 0)
         .then(() => {
           setReviewed((count) => count + 1);
-          setRevealed(false);
-          if (index + 1 < queue.length) {
-            setIndex(index + 1);
-          } else {
-            setPhase("done");
-            loadStats();
-          }
+          if (correct) setCorrectCount((count) => count + 1);
         })
         .catch((err: unknown) =>
           setError(err instanceof ApiError ? err.message : "Nie udało się zapisać oceny"),
         );
     },
-    [api, card, index, queue.length, loadStats],
+    [api, card, answered],
   );
+
+  const advance = useCallback(() => {
+    setAnswered(null);
+    if (index + 1 < queue.length) {
+      setIndex(index + 1);
+    } else {
+      setPhase("done");
+      loadStats();
+    }
+  }, [index, queue.length, loadStats]);
 
   useEffect(() => {
     if (phase !== "session") return;
@@ -82,19 +92,23 @@ export function ReviewView({ api, onOpenConcept }: ReviewViewProps) {
       const target = event.target as HTMLElement | null;
       if (target && ("value" in target || target.isContentEditable)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === " ") {
+      if (!answered) {
+        const key = event.key.toLowerCase();
+        const byLetter = ["a", "b", "c", "d"].indexOf(key);
+        const byDigit = ["1", "2", "3", "4"].indexOf(key);
+        const optionIndex = byLetter !== -1 ? byLetter : byDigit;
+        if (optionIndex !== -1) {
+          event.preventDefault();
+          choose(optionIndex);
+        }
+      } else if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        setRevealed(true);
-        return;
-      }
-      if (revealed && ["1", "2", "3", "4"].includes(event.key)) {
-        event.preventDefault();
-        grade(Number(event.key) - 1);
+        advance();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [phase, revealed, grade]);
+  }, [phase, answered, choose, advance]);
 
   if (phase === "loading") {
     return (
@@ -120,13 +134,13 @@ export function ReviewView({ api, onOpenConcept }: ReviewViewProps) {
             <span className="h-2.5 w-2.5 rounded-full bg-ok" aria-hidden />
             <h1 className="text-xl font-semibold">
               {reviewed > 0
-                ? `Powtórzone — ${reviewed} ${reviewed === 1 ? "karta" : "kart"} na dziś`
+                ? `Test skończony — ${correctCount}/${reviewed} poprawnych`
                 : "Nie masz nic do powtórki"}
             </h1>
           </div>
           <p className="mt-2 text-sm text-muted">
             {reviewed > 0
-              ? "Kolejne karty wrócą zgodnie z interwałami."
+              ? "Trafione karty wracają zgodnie z interwałami, pomyłki — już jutro."
               : "Fiszki pojawiają się razem z każdą nową lekcją — zadaj pytanie w widoku Pytaj."}
           </p>
           {stats && <StatsPanel stats={stats} onOpenConcept={onOpenConcept} />}
@@ -135,8 +149,10 @@ export function ReviewView({ api, onOpenConcept }: ReviewViewProps) {
     );
   }
 
+  const correctIndex = card.options.indexOf(card.a);
+
   return (
-    <div className="flex h-full flex-col items-center justify-center p-8">
+    <div className="flex h-full flex-col items-center justify-center overflow-auto p-8">
       <div className="w-full max-w-xl">
         <div className="mb-4 flex items-baseline justify-between text-xs text-muted">
           <span>
@@ -145,45 +161,63 @@ export function ReviewView({ api, onOpenConcept }: ReviewViewProps) {
           {stats && stats.streak_days > 0 && <span>seria: {stats.streak_days} dni</span>}
         </div>
 
-        <div className="rounded-lg border border-line bg-surface p-8">
+        <div className="rounded-lg border border-line bg-surface p-7">
           <p className="text-xs font-medium uppercase tracking-widest text-muted">
             {card.concept_name}
           </p>
-          <p className="mt-4 text-lg leading-relaxed">{card.q}</p>
+          <p className="mt-3 text-lg leading-relaxed">{card.q}</p>
+        </div>
 
-          {revealed ? (
+        <div className="mt-4 space-y-2">
+          {card.options.map((option, optionIndex) => {
+            let style = "border-line bg-surface hover:border-amber/60";
+            if (answered) {
+              if (optionIndex === correctIndex) {
+                style = "border-ok bg-ok/10";
+              } else if (optionIndex === answered.chosen) {
+                style = "border-err bg-err/10";
+              } else {
+                style = "border-line bg-surface opacity-40";
+              }
+            }
+            return (
+              <button
+                key={optionIndex}
+                type="button"
+                onClick={() => choose(optionIndex)}
+                disabled={answered !== null}
+                className={`flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors ${style}`}
+              >
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-line bg-ink font-mono text-xs text-muted"
+                  aria-hidden
+                >
+                  {LETTERS[optionIndex]}
+                </span>
+                <span className="leading-relaxed">{option}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex min-h-10 items-center justify-between">
+          {answered ? (
             <>
-              <div className="my-5 border-t border-dotted border-line" aria-hidden />
-              <p className="text-lg leading-relaxed text-ok">{card.a}</p>
+              <p className={`text-sm font-medium ${answered.correct ? "text-ok" : "text-err"}`}>
+                {answered.correct
+                  ? "Dobrze!"
+                  : `Pomyłka — poprawna odpowiedź: ${LETTERS[correctIndex]}.`}
+              </p>
+              <button type="button" onClick={advance} className="btn-primary">
+                Dalej <kbd className="ml-1 text-xs opacity-70">Enter</kbd>
+              </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => setRevealed(true)}
-              className="mt-6 w-full rounded-md border border-dashed border-line py-2.5 text-sm text-muted transition-colors hover:border-amber/60 hover:text-fg"
-            >
-              Odsłoń odpowiedź <kbd className="ml-1 text-muted/60">spacja</kbd>
-            </button>
+            <p className="text-xs text-muted">Odpowiedz klawiszem A–D albo 1–4.</p>
           )}
         </div>
 
-        {revealed && (
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            {GRADES.map((entry) => (
-              <button
-                key={entry.grade}
-                type="button"
-                onClick={() => grade(entry.grade)}
-                className={`rounded-md border bg-surface px-2 py-2.5 text-sm transition-colors hover:bg-raised ${entry.className}`}
-              >
-                {entry.label}
-                <span className="mt-0.5 block text-xs text-muted/60">{entry.key}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {error && <p className="mt-3 text-center text-sm text-err">{error}</p>}
+        {error && <p className="mt-2 text-center text-sm text-err">{error}</p>}
       </div>
     </div>
   );
@@ -200,7 +234,10 @@ function StatsPanel({
   return (
     <div className="mt-8 space-y-5">
       <div className="grid grid-cols-3 gap-3">
-        <StatTile value={`${stats.streak_days}`} label={stats.streak_days === 1 ? "dzień serii" : "dni serii"} />
+        <StatTile
+          value={`${stats.streak_days}`}
+          label={stats.streak_days === 1 ? "dzień serii" : "dni serii"}
+        />
         <StatTile value={`${stats.reviews.done_today}`} label="powtórek dziś" />
         <StatTile
           value={stats.exercises.attempted > 0 ? `${passPercent}%` : "—"}

@@ -21,6 +21,9 @@ interface SimNode extends GraphNode {
   vx: number;
   vy: number;
   r: number;
+  /** Środek klastra (spójnej składowej), do którego ciągnie grawitacja. */
+  cx: number;
+  cy: number;
 }
 
 interface GraphViewProps {
@@ -29,8 +32,9 @@ interface GraphViewProps {
   onAsk: (question: string) => void;
 }
 
-/** Prosty force-directed na canvasie: odpychanie wszystkich par, sprężyny na
- * krawędziach, grawitacja do środka, chłodzenie. Bez zależności zewnętrznych. */
+/** Force-directed z separacją klastrów: każda spójna składowa dostaje własny
+ * środek na siatce, więc niezależne lekcje nie plączą się w jednym kłębie.
+ * Węzły można przeciągać myszą. */
 export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,6 +48,7 @@ export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
     const nodes: SimNode[] = [];
     let edges: Array<{ a: SimNode; b: SimNode }> = [];
     const hover = { node: null as SimNode | null };
+    const drag = { node: null as SimNode | null, moved: false };
 
     api
       .graph()
@@ -54,17 +59,70 @@ export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
           return;
         }
         setState("ready");
+
+        // Spójne składowe (BFS) — każda dostaje własny środek na siatce.
+        const neighbors = new Map<number, number[]>();
+        for (const node of graph.nodes) neighbors.set(node.id, []);
+        for (const edge of graph.edges) {
+          neighbors.get(edge.from_id)?.push(edge.to_id);
+          neighbors.get(edge.to_id)?.push(edge.from_id);
+        }
+        const componentOf = new Map<number, number>();
+        const componentSizes: number[] = [];
+        for (const node of graph.nodes) {
+          if (componentOf.has(node.id)) continue;
+          const componentIndex = componentSizes.length;
+          let size = 0;
+          const stack = [node.id];
+          componentOf.set(node.id, componentIndex);
+          while (stack.length > 0) {
+            const current = stack.pop();
+            if (current === undefined) break;
+            size += 1;
+            for (const next of neighbors.get(current) ?? []) {
+              if (!componentOf.has(next)) {
+                componentOf.set(next, componentIndex);
+                stack.push(next);
+              }
+            }
+          }
+          componentSizes.push(size);
+        }
+
+        // Środki klastrów na siatce, większe klastry dostają więcej miejsca.
+        const order = componentSizes
+          .map((size, componentIndex) => ({ size, componentIndex }))
+          .sort((left, right) => right.size - left.size);
+        const cols = Math.ceil(Math.sqrt(order.length));
+        const rows = Math.ceil(order.length / cols);
+        const centers = new Map<number, { x: number; y: number }>();
+        order.forEach((entry, slot) => {
+          const col = slot % cols;
+          const row = Math.floor(slot / cols);
+          centers.set(entry.componentIndex, {
+            x: (col - (cols - 1) / 2) * 320,
+            y: (row - (rows - 1) / 2) * 280,
+          });
+        });
+
         const byId = new Map<number, SimNode>();
-        graph.nodes.forEach((node, index) => {
-          const angle = index * 2.39996; // złoty kąt — równomierny rozrzut startowy
-          const radius = 40 + 14 * Math.sqrt(index);
+        const perComponentCount = new Map<number, number>();
+        graph.nodes.forEach((node) => {
+          const componentIndex = componentOf.get(node.id) ?? 0;
+          const center = centers.get(componentIndex) ?? { x: 0, y: 0 };
+          const within = perComponentCount.get(componentIndex) ?? 0;
+          perComponentCount.set(componentIndex, within + 1);
+          const angle = within * 2.39996;
+          const radius = 25 + 13 * Math.sqrt(within);
           const sim: SimNode = {
             ...node,
-            x: Math.cos(angle) * radius,
-            y: Math.sin(angle) * radius,
+            x: center.x + Math.cos(angle) * radius,
+            y: center.y + Math.sin(angle) * radius,
             vx: 0,
             vy: 0,
             r: 4 + Math.min(7, Math.sqrt(node.degree + 1) * 1.8),
+            cx: center.x,
+            cy: center.y,
           };
           nodes.push(sim);
           byId.set(node.id, sim);
@@ -96,7 +154,7 @@ export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
             d2 = 1;
           }
           const d = Math.sqrt(d2);
-          const force = Math.min(1400 / d2, 6);
+          const force = Math.min(2200 / d2, 8);
           a.vx += (dx / d) * force;
           a.vy += (dy / d) * force;
           b.vx -= (dx / d) * force;
@@ -107,17 +165,19 @@ export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const d = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        const force = (d - 95) * 0.02;
+        const force = (d - 80) * 0.025;
         a.vx += (dx / d) * force;
         a.vy += (dy / d) * force;
         b.vx -= (dx / d) * force;
         b.vy -= (dy / d) * force;
       }
       for (const node of nodes) {
-        node.vx -= node.x * 0.006;
-        node.vy -= node.y * 0.006;
-        node.vx *= 0.85;
-        node.vy *= 0.85;
+        if (node === drag.node) continue; // przeciągany węzeł trzyma mysz
+        // grawitacja do środka WŁASNEGO klastra — to trzyma klastry osobno
+        node.vx += (node.cx - node.x) * 0.03;
+        node.vy += (node.cy - node.y) * 0.03;
+        node.vx *= 0.82;
+        node.vy *= 0.82;
         node.x += node.vx * cooling;
         node.y += node.vy * cooling;
       }
@@ -159,7 +219,6 @@ export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
         if (!node.has_content) {
-          // biała plama: pusty okrąg
           ctx.fillStyle = COLOR.ink;
           ctx.fill();
           ctx.strokeStyle = COLOR.placeholder;
@@ -199,12 +258,18 @@ export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
 
     const canvas = canvasRef.current;
 
-    const hitTest = (event: MouseEvent): SimNode | null => {
+    const mousePosition = (event: MouseEvent): { x: number; y: number } => {
       const container = containerRef.current;
-      if (!container) return null;
+      if (!container) return { x: 0, y: 0 };
       const rect = container.getBoundingClientRect();
-      const x = event.clientX - rect.left - rect.width / 2;
-      const y = event.clientY - rect.top - rect.height / 2;
+      return {
+        x: event.clientX - rect.left - rect.width / 2,
+        y: event.clientY - rect.top - rect.height / 2,
+      };
+    };
+
+    const hitTest = (event: MouseEvent): SimNode | null => {
+      const { x, y } = mousePosition(event);
       let best: SimNode | null = null;
       let bestDist = Infinity;
       for (const node of nodes) {
@@ -219,23 +284,53 @@ export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
       return best;
     };
 
-    const onMove = (event: MouseEvent) => {
+    const onMouseDown = (event: MouseEvent) => {
+      const node = hitTest(event);
+      if (!node) return;
+      drag.node = node;
+      drag.moved = false;
+      if (canvas) canvas.style.cursor = "grabbing";
+    };
+    const onMouseMove = (event: MouseEvent) => {
+      if (drag.node) {
+        const { x, y } = mousePosition(event);
+        drag.node.x = x;
+        drag.node.y = y;
+        drag.node.vx = 0;
+        drag.node.vy = 0;
+        drag.moved = true;
+        // reszta układu dopasowuje się do przeciąganego węzła
+        cooling = Math.max(cooling, 0.25);
+        return;
+      }
       hover.node = hitTest(event);
-      if (canvas) canvas.style.cursor = hover.node ? "pointer" : "default";
+      if (canvas) canvas.style.cursor = hover.node ? "grab" : "default";
+    };
+    const onMouseUp = () => {
+      if (drag.node && canvas) canvas.style.cursor = hover.node ? "grab" : "default";
+      drag.node = null;
     };
     const onClick = (event: MouseEvent) => {
+      if (drag.moved) {
+        drag.moved = false;
+        return; // to był drag, nie klik
+      }
       const node = hitTest(event);
       if (!node) return;
       if (node.has_content) onOpenConcept(node.id);
       else onAsk(node.name);
     };
-    canvas?.addEventListener("mousemove", onMove);
+    canvas?.addEventListener("mousedown", onMouseDown);
+    canvas?.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
     canvas?.addEventListener("click", onClick);
 
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
-      canvas?.removeEventListener("mousemove", onMove);
+      canvas?.removeEventListener("mousedown", onMouseDown);
+      canvas?.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
       canvas?.removeEventListener("click", onClick);
     };
   }, [api, onOpenConcept, onAsk]);
@@ -275,6 +370,7 @@ export function GraphView({ api, onOpenConcept, onAsk }: GraphViewProps) {
             />
             biała plama — klik zadaje pytanie
           </p>
+          <p className="text-muted/60">przeciągnij węzeł, żeby przestawić układ</p>
         </div>
       )}
     </div>

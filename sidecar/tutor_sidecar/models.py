@@ -204,6 +204,8 @@ class DueCard(BaseModel):
     concept_name: str
     q: str
     a: str
+    # Opcje testu ABCD: poprawna odpowiedź + do 3 dystraktorów, przetasowane.
+    options: list[str]
 
 
 class ReviewQueue(BaseModel):

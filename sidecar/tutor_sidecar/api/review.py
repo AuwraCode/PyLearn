@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request
@@ -21,21 +22,28 @@ def review_due(request: Request) -> ReviewQueue:
     try:
         rows = repo.due_cards(conn, now)
         total = repo.count_due(conn, now)
+        items = []
+        for row in rows:
+            options = [
+                str(row["a"]),
+                *repo.distractors_for_card(
+                    conn, int(row["id"]), int(row["concept_id"]), str(row["a"])
+                ),
+            ]
+            random.shuffle(options)
+            items.append(
+                DueCard(
+                    id=row["id"],
+                    concept_id=row["concept_id"],
+                    concept_name=row["concept_name"],
+                    q=row["q"],
+                    a=row["a"],
+                    options=options,
+                )
+            )
     finally:
         conn.close()
-    return ReviewQueue(
-        items=[
-            DueCard(
-                id=row["id"],
-                concept_id=row["concept_id"],
-                concept_name=row["concept_name"],
-                q=row["q"],
-                a=row["a"],
-            )
-            for row in rows
-        ],
-        total=total,
-    )
+    return ReviewQueue(items=items, total=total)
 
 
 @router.post("/review/{card_id}")

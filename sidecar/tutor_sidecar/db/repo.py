@@ -387,6 +387,19 @@ def due_cards(conn: sqlite3.Connection, now: str, limit: int = 200) -> list[sqli
     ).fetchall()
 
 
+def distractors_for_card(
+    conn: sqlite3.Connection, card_id: int, concept_id: int, answer: str, limit: int = 3
+) -> list[str]:
+    """Błędne odpowiedzi do testu ABCD: najpierw z fiszek tego samego pojęcia
+    (najbardziej mylące), potem z reszty bazy. Bez duplikatów treści."""
+    rows = conn.execute(
+        "SELECT a FROM cards WHERE id != ? AND a != ? GROUP BY a "
+        "ORDER BY MAX(concept_id = ?) DESC, RANDOM() LIMIT ?",
+        (card_id, answer, concept_id, limit),
+    ).fetchall()
+    return [str(row["a"]) for row in rows]
+
+
 def count_due(conn: sqlite3.Connection, now: str) -> int:
     row = conn.execute(
         "SELECT COUNT(*) AS c FROM cards WHERE due_at <= ?", (now,)

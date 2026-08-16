@@ -153,6 +153,8 @@ export interface DueCard {
   concept_name: string;
   q: string;
   a: string;
+  /** Opcje testu ABCD: poprawna odpowiedź + dystraktory, przetasowane. */
+  options: string[];
 }
 
 export interface ReviewQueue {
