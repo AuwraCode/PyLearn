@@ -51,6 +51,10 @@ fn spawn(app: &AppHandle) -> Result<(), String> {
         .shell()
         .sidecar("tutor-sidecar")
         .map_err(|e| format!("Nie znaleziono binarki sidecara: {e}"))?
+        // Aplikacja z Findera startuje z cwd "/", które dziedziczą dzieci
+        // (w tym claude CLI) — jawny katalog roboczy we własnych danych
+        // aplikacji ogranicza prompty TCC macOS o dostęp do katalogów.
+        .current_dir(data_dir.clone())
         .env("TUTOR_DB_PATH", db_path.to_string_lossy().to_string());
     let (mut rx, child) = command
         .spawn()

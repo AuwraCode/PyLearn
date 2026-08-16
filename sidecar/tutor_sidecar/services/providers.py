@@ -60,13 +60,14 @@ def resolve_provider(
     mode = stored.get("llm_mode", "auto")
     sdk_model = stored.get("sdk_model", SETTING_DEFAULTS["sdk_model"])
 
+    workdir = db_path.parent if db_path is not None else None
     if mode == "cli":
-        return (CliProvider(cli_path) if cli_path else None), meta
+        return (CliProvider(cli_path, workdir=workdir) if cli_path else None), meta
     if mode == "sdk":
         return (SdkProvider(api_key, model=sdk_model) if api_key else None), meta
     # auto: CLI ma pierwszeństwo (spec §4), potem klucz API
     if cli_path:
-        return CliProvider(cli_path), meta
+        return CliProvider(cli_path, workdir=workdir), meta
     if api_key:
         return SdkProvider(api_key, model=sdk_model), meta
     return None, meta

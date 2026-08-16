@@ -93,8 +93,11 @@ class CliProvider:
 
     name: Literal["cli", "sdk", "fake"] = "cli"
 
-    def __init__(self, claude_path: str):
+    def __init__(self, claude_path: str, workdir: Path | None = None):
         self.claude_path = claude_path
+        # CLI traktuje cwd jak katalog projektu — trzymamy je we własnych
+        # danych aplikacji, żeby nie dotykało chronionych katalogów użytkownika.
+        self.workdir = workdir
 
     async def ask(self, prompt: str, system: str) -> LlmResult:
         args = [
@@ -114,6 +117,7 @@ class CliProvider:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            cwd=str(self.workdir) if self.workdir is not None else None,
         )
         try:
             stdout, stderr = await asyncio.wait_for(
