@@ -235,7 +235,10 @@ export function AskView({ api, askTarget, onAskTargetConsumed, onGoSettings }: A
   return (
     <div className="flex h-full flex-col items-center justify-center overflow-auto p-8">
       <div className="w-full max-w-xl">
-        <h1 className="text-center text-2xl font-semibold tracking-tight">
+        <p className="text-center text-4xl font-bold tracking-tight">
+          <span className="text-amber">Py</span>Learn
+        </p>
+        <h1 className="mt-3 text-center text-lg text-muted">
           Czego chcesz się nauczyć?
         </h1>
         <form
